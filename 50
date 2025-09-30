@@ -1,0 +1,149 @@
+import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
+import { useUI } from '@/context/UIContext';
+import { getTutors, updateClass } from '@/services/api';
+import { Tutor, AppClassSession } from '@/types';
+import Modal from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const classSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  tutor_id: z.string().uuid('Please select a tutor'),
+  start_time: z.string().min(1, 'Start time is required'),
+  end_time: z.string().min(1, 'End time is required'),
+  thumbnail: z.instanceof(FileList).optional(),
+});
+
+type ClassFormValues = z.infer<typeof classSchema>;
+
+interface EditClassModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose }) => {
+  const { modalData, refreshData, closeModal } = useUI();
+  const session = modalData as AppClassSession | null;
+
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [isLoadingTutors, setIsLoadingTutors] = useState(true);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ClassFormValues>({
+    resolver: zodResolver(classSchema),
+  });
+
+  const formatDateForInput = (date: Date) => {
+    const d = new Date(date);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsLoadingTutors(true);
+      getTutors()
+        .then(data => setTutors(data))
+        .catch(() => toast.error("Could not load tutors."))
+        .finally(() => setIsLoadingTutors(false));
+      
+      if (session) {
+        reset({
+          title: session.title,
+          tutor_id: session.tutor.id,
+          start_time: formatDateForInput(session.startTime),
+          end_time: formatDateForInput(session.endTime),
+        });
+        setThumbnailPreview(session.thumbnailUrl);
+      }
+    } else {
+      reset();
+      setThumbnailPreview(null);
+    }
+  }, [isOpen, session, reset]);
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      setThumbnailPreview(URL.createObjectURL(file));
+    } else {
+      setThumbnailPreview(session?.thumbnailUrl || null);
+    }
+  };
+
+  const onSubmit = async (formData: ClassFormValues) => {
+    if (!session) return toast.error("No class data to update.");
+    
+    const { thumbnail, ...restOfFormData } = formData;
+
+    const classData = {
+      ...restOfFormData,
+      start_time: new Date(formData.start_time).toISOString(),
+      end_time: new Date(formData.end_time).toISOString(),
+    };
+
+    const thumbnailFile = thumbnail?.[0];
+
+    const promise = updateClass(session.id, classData, thumbnailFile, session.thumbnailUrl);
+
+    toast.promise(promise, {
+      loading: 'Updating class...',
+      success: () => {
+        refreshData();
+        closeModal();
+        return 'Class updated successfully!';
+      },
+      error: (err) => `Error: ${err.message}`,
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={closeModal} title="Edit Class">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="title-edit">Class Title</Label>
+          <Input id="title-edit" {...register('title')} />
+          {errors.title && <p className="text-red-500 text-xs">{errors.title.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="tutor_id-edit">Tutor</Label>
+          <Select id="tutor_id-edit" {...register('tutor_id')} disabled={isLoadingTutors}>
+            {isLoadingTutors ? <option>Loading...</option> : tutors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </Select>
+          {errors.tutor_id && <p className="text-red-500 text-xs">{errors.tutor_id.message}</p>}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="start_time-edit">Start Time</Label>
+            <Input id="start_time-edit" type="datetime-local" {...register('start_time')} />
+            {errors.start_time && <p className="text-red-500 text-xs">{errors.start_time.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="end_time-edit">End Time</Label>
+            <Input id="end_time-edit" type="datetime-local" {...register('end_time')} />
+            {errors.end_time && <p className="text-red-500 text-xs">{errors.end_time.message}</p>}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="thumbnail-edit">Thumbnail</Label>
+          {thumbnailPreview && <img src={thumbnailPreview} alt="Thumbnail preview" className="w-full h-40 object-cover rounded-lg my-2" />}
+          <Input id="thumbnail-edit" type="file" accept="image/*" {...register('thumbnail')} onChange={handleThumbnailChange} />
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={closeModal} disabled={isSubmitting}>Cancel</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default EditClassModal;

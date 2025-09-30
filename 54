@@ -1,0 +1,98 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { getBatchById, getRecurringClassesForBatch } from '@/services/api';
+import { RecurringClass, Batch } from '@/types';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useUI } from '@/context/UIContext';
+import { Button } from '@/components/ui/Button';
+import { Plus, ArrowLeft } from 'lucide-react';
+import RecurringClassCard from '@/components/RecurringClassCard';
+
+const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const BatchDetailPage: React.FC = () => {
+  const { batchId } = useParams<{ batchId: string }>();
+  const [batch, setBatch] = useState<Batch | null>(null);
+  const [recurringClasses, setRecurringClasses] = useState<RecurringClass[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { openModal, triggerRefresh } = useUI();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!batchId) return;
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [batchData, classesData] = await Promise.all([
+          getBatchById(batchId),
+          getRecurringClassesForBatch(batchId)
+        ]);
+        setBatch(batchData);
+        setRecurringClasses(classesData);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load batch details.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [batchId, triggerRefresh]);
+
+  const classesByDay: { [key: number]: RecurringClass[] } = {};
+  recurringClasses.forEach(session => {
+    const day = session.day_of_week;
+    if (!classesByDay[day]) classesByDay[day] = [];
+    classesByDay[day].push(session);
+  });
+
+  return (
+    <div>
+      <Link to="/admin/batches" className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition-colors">
+        <ArrowLeft size={16} />
+        Back to Batches
+      </Link>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        {isLoading ? <Skeleton className="h-10 w-64 mb-2 md:mb-0" /> : 
+          <h2 className="text-3xl font-bold text-white">{batch?.name || 'Batch Details'} - Weekly Schedule</h2>
+        }
+      </div>
+      
+      {error && <div className="col-span-full text-center py-10 bg-red-900/20 rounded-xl"><h3 className="text-lg font-semibold text-red-400">{error}</h3></div>}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
+        {[1, 2, 3, 4, 5, 6, 0].map(dayIndex => (
+            <div key={dayIndex} className="bg-gray-800/50 rounded-xl p-3 flex flex-col gap-3">
+              <div className="text-center">
+                <p className="text-sm text-gray-400">{WEEK_DAYS[dayIndex]}</p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => openModal('createRecurringClass', { batchId, dayOfWeek: dayIndex })}>
+                <Plus size={14} className="mr-1" /> Class
+              </Button>
+              <div className="flex flex-col gap-3">
+                {isLoading ? (
+                  <Skeleton className="h-32 w-full" />
+                ) : (classesByDay[dayIndex] || []).length > 0 ? (
+                  (classesByDay[dayIndex] || []).map(session => (
+                    <RecurringClassCard 
+                      key={session.id} 
+                      session={session}
+                      onEdit={() => openModal('editRecurringClass', session)}
+                      onDelete={() => openModal('confirmDelete', { id: session.id, type: 'recurring-class', name: session.title })}
+                    />
+                  ))
+                ) : (
+                   <div className="text-center text-gray-600 text-xs py-10 border-2 border-dashed border-gray-700 rounded-lg h-full flex items-center justify-center">
+                     No classes
+                   </div>
+                )}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default BatchDetailPage;

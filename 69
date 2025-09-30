@@ -1,0 +1,4 @@
+<dualiteAction type="file" filePath="src/components/ProtectedRoute.tsx" isDeleted="true" />
+<dualiteAction type="file" filePath="src/context/AuthContext.tsx" isDeleted="true" />
+<dualiteAction type="shell">
+yarn run dev

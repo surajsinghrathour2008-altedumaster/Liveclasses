@@ -1,0 +1,21 @@
+import { Database } from "./supabase";
+
+export type Tutor = Database['public']['Tables']['tutors']['Row'];
+export type Batch = Database['public']['Tables']['batches']['Row'];
+export type Notification = Database['public']['Tables']['notifications']['Row'];
+export type RecurringClass = Database['public']['Tables']['recurring_classes']['Row'] & {
+    tutors: Tutor;
+};
+
+// This represents a specific, generated instance of a recurring class on a real date.
+export interface AppClassSession {
+  id: string; // A unique ID for this specific instance (e.g., recurring_id + date)
+  recurring_class_id: string; // The ID of the parent recurring class
+  title: string;
+  batch: string;
+  batchId: string;
+  startTime: Date;
+  endTime: Date;
+  thumbnailUrl: string;
+  tutor: Tutor;
+}

@@ -1,0 +1,40 @@
+/*
+# [Operation Name]
+Standardize 'tutors.video_stream_url' Column
+
+# [Description]
+This script ensures the column for storing tutor video links is correctly named 'video_stream_url'. It checks if a column named 'video_url' exists and, if so, renames it. This is a safe operation designed to fix schema inconsistencies and will not cause data loss.
+
+## Query Description:
+This operation standardizes the column name for tutor video streams to `video_stream_url`. It first checks for the existence of an incorrectly named `video_url` column and renames it. If `video_stream_url` already exists, no action is taken. This is a low-risk structural change that does not affect existing data.
+
+## Metadata:
+- Schema-Category: "Structural"
+- Impact-Level: "Low"
+- Requires-Backup: false
+- Reversible: true
+
+## Structure Details:
+- Table affected: `public.tutors`
+- Column affected: Renames `video_url` to `video_stream_url` if it exists.
+
+## Security Implications:
+- RLS Status: Unchanged
+- Policy Changes: No
+- Auth Requirements: None
+
+## Performance Impact:
+- Indexes: Unchanged
+- Triggers: Unchanged
+- Estimated Impact: Negligible. This is a metadata change.
+*/
+
+DO $$
+BEGIN
+  IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tutors' AND column_name = 'video_url') THEN
+    ALTER TABLE public.tutors RENAME COLUMN video_url TO video_stream_url;
+    RAISE NOTICE 'Renamed column "video_url" to "video_stream_url" in "tutors" table.';
+  ELSE
+    RAISE NOTICE 'Column "video_stream_url" already exists or "video_url" not found. No action taken.';
+  END IF;
+END $$;

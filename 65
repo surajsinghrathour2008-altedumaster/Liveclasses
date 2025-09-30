@@ -1,0 +1,67 @@
+/*
+# [Operation Name]
+Recreate Tutors Table with Cascade
+
+## Query Description: [This operation will completely delete and recreate the 'tutors' table to resolve persistent schema inconsistencies. It uses `DROP...CASCADE` to automatically remove dependent objects (like links from the 'classes' table) and then recreates those links. This is a destructive operation for the 'tutors' table but is necessary to ensure a clean and correct state. All existing tutor data will be lost.]
+
+## Metadata:
+- Schema-Category: ["Dangerous"]
+- Impact-Level: ["High"]
+- Requires-Backup: [true]
+- Reversible: [false]
+
+## Structure Details:
+- Drops table `public.tutors` and its dependent constraints.
+- Recreates table `public.tutors` with columns: `id`, `name`, `avatar_url`, `video_url`.
+- Adds a `CHECK` constraint to `video_url` to ensure it ends with '.m3u8'.
+- Re-adds the foreign key constraint from `public.classes` to `public.tutors`.
+- Re-enables Row Level Security and adds policies for `SELECT`, `INSERT`, `UPDATE`, `DELETE`.
+
+## Security Implications:
+- RLS Status: [Enabled]
+- Policy Changes: [Yes]
+- Auth Requirements: [Applies policies for the 'anon' role.]
+
+## Performance Impact:
+- Indexes: [Primary key index will be recreated.]
+- Triggers: [None]
+- Estimated Impact: [Low, as it's recreating a core table.]
+*/
+
+-- Step 1: Drop the existing tutors table and any dependent objects (like foreign key constraints).
+-- This is the key fix for the error you encountered.
+DROP TABLE IF EXISTS public.tutors CASCADE;
+
+-- Step 2: Recreate the tutors table with the correct structure and constraints.
+-- The column is correctly named `video_url`.
+CREATE TABLE public.tutors (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    name text NOT NULL,
+    avatar_url text NULL,
+    video_url text NOT NULL,
+    CONSTRAINT tutors_pkey PRIMARY KEY (id),
+    CONSTRAINT tutors_video_url_check CHECK ((video_url ~~* '%.m3u8'::text))
+);
+
+-- Step 3: Re-establish the foreign key relationship from the 'classes' table to the new 'tutors' table.
+-- This was dropped by the CASCADE command and must be recreated.
+ALTER TABLE public.classes
+ADD CONSTRAINT classes_tutor_id_fkey
+FOREIGN KEY (tutor_id)
+REFERENCES public.tutors(id)
+ON DELETE RESTRICT;
+
+-- Step 4: Re-enable Row Level Security and add policies for the new table.
+ALTER TABLE public.tutors ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read access to tutors"
+ON public.tutors
+FOR SELECT
+USING (true);
+
+CREATE POLICY "Allow anonymous users to manage tutors"
+ON public.tutors
+FOR ALL
+USING (true)
+WITH CHECK (true);

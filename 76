@@ -1,0 +1,114 @@
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import toast from 'react-hot-toast';
+import { AppClassSession, RecurringClass } from '@/types';
+import { getTodaysRecurringClasses } from '@/services/api';
+import ClassNotificationToast from '@/components/ClassNotificationToast';
+
+const ClassNotificationContext = createContext<undefined>(undefined);
+
+const NOTIFICATION_INTERVAL = 30000; // Check every 30 seconds
+
+// Define the notification thresholds in minutes
+const NOTIFICATION_THRESHOLDS = [
+    { minutes: 60, id: '60m_before', message: (title: string) => `"${title}" is starting in 1 hour!` },
+    { minutes: 10, id: '10m_before', message: (title: string) => `"${title}" is starting in 10 minutes!` },
+    { minutes: 0, id: '0m_start', message: (title: string) => `"${title}" is starting now!` },
+    { minutes: -10, id: '10m_after', message: (title: string) => `"${title}" started 10 minutes ago. Join now!` },
+];
+
+export const ClassNotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [todaysSessions, setTodaysSessions] = useState<AppClassSession[]>([]);
+    const [sentNotifications, setSentNotifications] = useState<Record<string, string[]>>({});
+
+    // 1. Fetch today's classes once on mount
+    useEffect(() => {
+        const generateTodaysSessions = (recurringClasses: (RecurringClass & { batches: { name: string } | null })[]): AppClassSession[] => {
+            const now = new Date();
+            const todaySessions: AppClassSession[] = [];
+
+            recurringClasses.forEach(rc => {
+                const [startHour, startMinute] = rc.start_time.split(':').map(Number);
+                const [endHour, endMinute] = rc.end_time.split(':').map(Number);
+
+                const startTime = new Date();
+                startTime.setHours(startHour, startMinute, 0, 0);
+
+                const endTime = new Date();
+                endTime.setHours(endHour, endMinute, 0, 0);
+
+                // Only consider classes that haven't ended yet for notification purposes
+                if (endTime > now) {
+                    todaySessions.push({
+                        id: `${rc.id}-${startTime.toISOString().split('T')[0]}`,
+                        recurring_class_id: rc.id,
+                        title: rc.title,
+                        batch: rc.batches?.name || 'Unknown Batch',
+                        batchId: rc.batch_id,
+                        startTime,
+                        endTime,
+                        thumbnailUrl: rc.thumbnail_url || 'https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://placehold.co/400x225/1C1C22/E0E0E6?text=No+Image',
+                        tutor: rc.tutors,
+                    });
+                }
+            });
+            return todaySessions;
+        };
+
+        getTodaysRecurringClasses()
+            .then(recurring => {
+                const sessions = generateTodaysSessions(recurring);
+                setTodaysSessions(sessions);
+            })
+            .catch(err => console.error("Failed to fetch today's classes for notifications:", err));
+    }, []);
+
+    // 2. Run the notification checker on an interval
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            const now = new Date().getTime();
+            
+            todaysSessions.forEach(session => {
+                const startTime = session.startTime.getTime();
+                const diffMinutes = (startTime - now) / 1000 / 60;
+
+                NOTIFICATION_THRESHOLDS.forEach(threshold => {
+                    // Check if we are within the notification window (e.g., between 10.5 and 9.5 minutes before)
+                    // and if the notification hasn't been sent yet.
+                    if (diffMinutes <= threshold.minutes && diffMinutes > threshold.minutes - (NOTIFICATION_INTERVAL / 1000 / 60) * 2) {
+                        const hasBeenSent = sentNotifications[session.id]?.includes(threshold.id);
+                        if (!hasBeenSent) {
+                            // Fire notification!
+                            toast.custom(
+                                (t) => <ClassNotificationToast t={t} session={session} message={threshold.message(session.title)} />,
+                                { duration: 15000, position: 'top-right' }
+                            );
+
+                            // Mark as sent
+                            setSentNotifications(prev => ({
+                                ...prev,
+                                [session.id]: [...(prev[session.id] || []), threshold.id]
+                            }));
+                        }
+                    }
+                });
+            });
+
+        }, NOTIFICATION_INTERVAL);
+
+        return () => clearInterval(intervalId);
+    }, [todaysSessions, sentNotifications]);
+
+    return (
+        <ClassNotificationContext.Provider value={undefined}>
+            {children}
+        </ClassNotificationContext.Provider>
+    );
+};
+
+export const useClassNotifications = () => {
+    const context = useContext(ClassNotificationContext);
+    if (context === undefined) {
+        throw new Error('useClassNotifications must be used within a ClassNotificationProvider');
+    }
+    return context;
+};

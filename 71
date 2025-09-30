@@ -1,0 +1,41 @@
+import React from 'react';
+import { RecurringClass } from '@/types';
+import { Button } from './ui/Button';
+import { Pencil, Trash2 } from 'lucide-react';
+
+interface RecurringClassCardProps {
+  session: RecurringClass;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const RecurringClassCard: React.FC<RecurringClassCardProps> = ({ session, onEdit, onDelete }) => {
+  const formatTime = (time: string) => {
+    const [hour, minute] = time.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hour, 10), parseInt(minute, 10));
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-3 flex flex-col gap-2 border border-gray-700/50">
+      <img src={session.thumbnail_url || 'https://img-wrapper.vercel.app/image?url=https://placehold.co/400x225/1C1C22/E0E0E6?text=No+Image'} alt={session.title} className="w-full h-24 object-cover rounded-md" />
+      <div>
+        <h3 className="font-semibold text-white truncate text-sm">{session.title}</h3>
+        <p className="text-xs text-gray-400">{session.tutors.name}</p>
+      </div>
+      <div className="text-xs text-gray-400 flex-grow">{`${formatTime(session.start_time)} - ${formatTime(session.end_time)}`}</div>
+      
+      <div className="flex items-center justify-end gap-1 mt-1">
+          <Button variant="secondary" size="icon" className="h-7 w-7" onClick={onEdit}>
+              <Pencil size={14} />
+          </Button>
+          <Button variant="secondary" size="icon" className="h-7 w-7 bg-red-900/50 text-red-400 hover:bg-red-900/80" onClick={onDelete}>
+              <Trash2 size={14} />
+          </Button>
+      </div>
+    </div>
+  );
+};
+
+export default RecurringClassCard;

@@ -1,0 +1,72 @@
+import React from 'react';
+import toast from 'react-hot-toast';
+import { useUI } from '@/context/UIContext';
+import { createTutor } from '@/services/api';
+import Modal from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Button } from '@/components/ui/Button';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const tutorSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  video_url: z.string().url('Must be a valid URL').refine(s => s.endsWith('.m3u8'), 'URL must end with .m3u8'),
+});
+
+type TutorFormValues = z.infer<typeof tutorSchema>;
+
+interface CreateTutorModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const CreateTutorModal: React.FC<CreateTutorModalProps> = ({ isOpen, onClose }) => {
+  const { refreshData, closeModal } = useUI();
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<TutorFormValues>({
+    resolver: zodResolver(tutorSchema),
+  });
+
+  const onSubmit = async (data: TutorFormValues) => {
+    const promise = createTutor(data);
+
+    toast.promise(promise, {
+      loading: 'Creating tutor...',
+      success: () => {
+        refreshData();
+        closeModal();
+        reset();
+        return 'Tutor created successfully!';
+      },
+      error: (err) => `Error: ${err.message}`,
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={closeModal} title="Add New Tutor">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="tutor-name">Tutor Name</Label>
+          <Input id="tutor-name" {...register('name')} placeholder="e.g., John Doe" />
+          {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="tutor-video-url">Video Stream URL (.m3u8)</Label>
+          <Input id="tutor-video-url" {...register('video_url')} placeholder="https://.../stream.m3u8" />
+          {errors.video_url && <p className="text-red-500 text-xs">{errors.video_url.message}</p>}
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={closeModal} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Adding...' : 'Add Tutor'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default CreateTutorModal;

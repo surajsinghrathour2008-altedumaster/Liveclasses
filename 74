@@ -1,0 +1,38 @@
+-- This script will completely reset the class scheduling system.
+-- It is a DESTRUCTIVE action and will delete all existing classes.
+
+-- Step 1: Drop the old 'classes' table and any objects that depend on it.
+-- Using CASCADE ensures that links from other tables are cleanly removed.
+DROP TABLE IF EXISTS public.classes CASCADE;
+
+-- Step 2: Drop the 'recurring_classes' table if it exists in a broken state from a previous attempt.
+DROP TABLE IF EXISTS public.recurring_classes CASCADE;
+
+-- Step 3: Create the new 'recurring_classes' table with the correct structure.
+CREATE TABLE public.recurring_classes (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    title character varying NOT NULL,
+    batch_id uuid NOT NULL,
+    tutor_id uuid NOT NULL,
+    day_of_week smallint NOT NULL,
+    start_time time without time zone NOT NULL,
+    end_time time without time zone NOT NULL,
+    thumbnail_url text,
+    CONSTRAINT recurring_classes_pkey PRIMARY KEY (id),
+    CONSTRAINT recurring_classes_day_of_week_check CHECK (((day_of_week >= 0) AND (day_of_week <= 6))),
+    CONSTRAINT recurring_classes_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches(id) ON DELETE CASCADE,
+    CONSTRAINT recurring_classes_tutor_id_fkey FOREIGN KEY (tutor_id) REFERENCES public.tutors(id) ON DELETE CASCADE
+);
+
+-- Step 4: Enable Row Level Security on the new table.
+ALTER TABLE public.recurring_classes ENABLE ROW LEVEL SECURITY;
+
+-- Step 5: Create policies to allow access. Since login was removed, we allow anonymous access.
+CREATE POLICY "Allow public read access for recurring classes" ON public.recurring_classes FOR SELECT USING (true);
+CREATE POLICY "Allow anonymous insert on recurring classes" ON public.recurring_classes FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anonymous update on recurring classes" ON public.recurring_classes FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anonymous delete on recurring classes" ON public.recurring_classes FOR DELETE USING (true);
+
+-- Step 6: Add a comment to the table. This is a reliable way to force Supabase to invalidate its schema cache.
+COMMENT ON TABLE public.recurring_classes IS 'Stores templates for classes that repeat weekly. Version 2.';

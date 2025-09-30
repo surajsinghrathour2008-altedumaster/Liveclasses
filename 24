@@ -1,0 +1,28 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
+import { Box } from 'lucide-react';
+
+const AdminDashboard: React.FC = () => {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-white">Welcome, Admin!</h1>
+        <p className="mt-4 text-gray-400">
+          This is your central command for managing live classes.
+        </p>
+        <p className="text-gray-500 mb-8">
+          The main workflow for scheduling classes now starts from the "Batches" page.
+        </p>
+        <Button asChild>
+          <Link to="/admin/batches">
+            <Box className="mr-2 h-4 w-4" />
+            Go to Batches
+          </Link>
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default AdminDashboard;

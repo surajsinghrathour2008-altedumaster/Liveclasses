@@ -1,0 +1,60 @@
+import React from 'react';
+import toast from 'react-hot-toast';
+import { AppClassSession } from '@/types';
+import { Button } from './ui/Button';
+import { X, Radio } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface ClassNotificationToastProps {
+  t: {
+    visible: boolean;
+    id: string;
+  };
+  session: AppClassSession;
+  message: string;
+}
+
+const ClassNotificationToast: React.FC<ClassNotificationToastProps> = ({ t, session, message }) => {
+  return (
+    <div
+      className={cn(
+        "max-w-md w-full bg-gray-800 shadow-2xl rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5 border border-gray-700",
+        t.visible ? "animate-in fade-in-0 slide-in-from-top-full" : "animate-out fade-out-0 slide-out-to-top-full"
+      )}
+    >
+      <div className="flex-1 w-0 p-4">
+        <div className="flex items-start">
+          <div className="flex-shrink-0 pt-0.5">
+            <img
+              className="h-10 w-10 rounded-full object-cover"
+              src={session.thumbnailUrl}
+              alt={session.title}
+            />
+          </div>
+          <div className="ml-3 flex-1">
+            <p className="text-sm font-medium text-white">{message}</p>
+            <p className="mt-1 text-sm text-gray-400">Tutor: {session.tutor.name}</p>
+            <div className="mt-4 flex">
+                <Button asChild size="sm">
+                    <a href={session.tutor.video_url} target="_blank" rel="noopener noreferrer" onClick={() => toast.dismiss(t.id)}>
+                        <Radio size={14} className="mr-2" />
+                        Join Now
+                    </a>
+                </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="flex border-l border-gray-700">
+        <button
+          onClick={() => toast.dismiss(t.id)}
+          className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-accent-start"
+        >
+          <X size={20} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default ClassNotificationToast;

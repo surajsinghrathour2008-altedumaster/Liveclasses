@@ -1,0 +1,82 @@
+import React, { useState } from 'react';
+import toast from 'react-hot-toast';
+import { useUI } from '@/context/UIContext';
+import { createBatch } from '@/services/api';
+import Modal from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Textarea } from '@/components/ui/Textarea';
+import { Button } from '@/components/ui/Button';
+
+interface CreateBatchModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const CreateBatchModal: React.FC<CreateBatchModalProps> = ({ isOpen, onClose }) => {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { refreshData } = useUI();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error('Batch name is required.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const promise = createBatch(name, description || null);
+
+    toast.promise(promise, {
+      loading: 'Creating batch...',
+      success: () => {
+        refreshData();
+        onClose();
+        return 'Batch created successfully!';
+      },
+      error: (err) => `Error: ${err.message}`,
+    }).finally(() => {
+      setIsSubmitting(false);
+      setName('');
+      setDescription('');
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Create New Batch">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="batch-name">Batch Name</Label>
+          <Input 
+            id="batch-name" 
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., React Advanced - Cohort 3"
+            required 
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="batch-description">Description (Optional)</Label>
+          <Textarea
+            id="batch-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="A brief description of the batch."
+          />
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Creating...' : 'Create Batch'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default CreateBatchModal;

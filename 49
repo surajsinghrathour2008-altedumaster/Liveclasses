@@ -1,0 +1,40 @@
+/*
+# [Enable Write Operations for Anonymous Users]
+This migration adds INSERT, UPDATE, and DELETE policies to the 'batches', 'classes', and 'notifications' tables for the 'anon' role. This allows unauthenticated users to modify data, which is necessary for the admin panel to function before user authentication is implemented.
+
+## Query Description: [This operation adjusts Row Level Security (RLS) policies to permit write access for anonymous users. This is a temporary, permissive setup for development purposes. In a production environment, these policies should be replaced with more restrictive ones tied to authenticated user roles (e.g., 'admin').]
+
+## Metadata:
+- Schema-Category: ["Structural", "Security"]
+- Impact-Level: ["Medium"]
+- Requires-Backup: false
+- Reversible: true
+
+## Structure Details:
+- Affects policies on tables: `batches`, `classes`, `notifications`
+
+## Security Implications:
+- RLS Status: [Policies Added]
+- Policy Changes: [Yes]
+- Auth Requirements: [This specifically targets the 'anon' (unauthenticated) role.]
+
+## Performance Impact:
+- Indexes: [None]
+- Triggers: [None]
+- Estimated Impact: [Low. Policy checks have a negligible performance impact.]
+*/
+
+-- Batches Table Policies
+CREATE POLICY "Allow anonymous insert for batches" ON public.batches FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anonymous update for batches" ON public.batches FOR UPDATE TO anon USING (true);
+CREATE POLICY "Allow anonymous delete for batches" ON public.batches FOR DELETE TO anon USING (true);
+
+-- Classes Table Policies
+CREATE POLICY "Allow anonymous insert for classes" ON public.classes FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anonymous update for classes" ON public.classes FOR UPDATE TO anon USING (true);
+CREATE POLICY "Allow anonymous delete for classes" ON public.classes FOR DELETE TO anon USING (true);
+
+-- Notifications Table Policies
+CREATE POLICY "Allow anonymous insert for notifications" ON public.notifications FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anonymous update for notifications" ON public.notifications FOR UPDATE TO anon USING (true);
+CREATE POLICY "Allow anonymous delete for notifications" ON public.notifications FOR DELETE TO anon USING (true);

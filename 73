@@ -1,0 +1,151 @@
+import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
+import { useUI } from '@/context/UIContext';
+import { getTutors, updateRecurringClass } from '@/services/api';
+import { Tutor, RecurringClass } from '@/types';
+import Modal from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const recurringClassSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  tutor_id: z.string().uuid('Please select a tutor'),
+  day_of_week: z.number().min(0).max(6),
+  start_time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format'),
+  end_time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format'),
+  thumbnail: z.instanceof(FileList).optional(),
+}).refine(data => data.end_time > data.start_time, {
+  message: "End time must be after start time",
+  path: ["end_time"],
+});
+
+type RecurringClassFormValues = z.infer<typeof recurringClassSchema>;
+
+const WEEK_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const EditRecurringClassModal: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
+  const { modalData, refreshData, closeModal } = useUI();
+  const session = modalData as RecurringClass | null;
+
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [isLoadingTutors, setIsLoadingTutors] = useState(true);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<RecurringClassFormValues>({
+    resolver: zodResolver(recurringClassSchema),
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsLoadingTutors(true);
+      getTutors()
+        .then(setTutors)
+        .catch(() => toast.error("Could not load tutors."))
+        .finally(() => setIsLoadingTutors(false));
+      
+      if (session) {
+        reset({
+          title: session.title,
+          tutor_id: session.tutor_id,
+          day_of_week: session.day_of_week,
+          start_time: session.start_time.substring(0, 5),
+          end_time: session.end_time.substring(0, 5),
+        });
+        setThumbnailPreview(session.thumbnail_url);
+      }
+    } else {
+      reset();
+      setThumbnailPreview(null);
+    }
+  }, [isOpen, session, reset]);
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      setThumbnailPreview(URL.createObjectURL(file));
+    } else {
+      setThumbnailPreview(session?.thumbnail_url || null);
+    }
+  };
+
+  const onSubmit = async (formData: RecurringClassFormValues) => {
+    if (!session) return toast.error("No class data to update.");
+    
+    const { thumbnail, ...restOfFormData } = formData;
+    const classData = {
+      ...restOfFormData,
+      start_time: `${formData.start_time}:00`,
+      end_time: `${formData.end_time}:00`,
+    };
+
+    const thumbnailFile = thumbnail?.[0];
+
+    const promise = updateRecurringClass(session.id, classData, thumbnailFile, session.thumbnail_url);
+
+    toast.promise(promise, {
+      loading: 'Updating recurring class...',
+      success: () => {
+        refreshData();
+        closeModal();
+        return 'Class updated successfully!';
+      },
+      error: (err) => `Error: ${err.message}`,
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={closeModal} title="Edit Recurring Class">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="title-edit-rec">Class Title</Label>
+          <Input id="title-edit-rec" {...register('title')} />
+          {errors.title && <p className="text-red-500 text-xs">{errors.title.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="tutor_id-edit-rec">Tutor</Label>
+          <Select id="tutor_id-edit-rec" {...register('tutor_id')} disabled={isLoadingTutors}>
+            {isLoadingTutors ? <option>Loading...</option> : tutors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </Select>
+          {errors.tutor_id && <p className="text-red-500 text-xs">{errors.tutor_id.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="day_of_week-edit-rec">Day of the Week</Label>
+          <Select id="day_of_week-edit-rec" {...register('day_of_week', { valueAsNumber: true })}>
+            {WEEK_DAYS.map((day, index) => <option key={index} value={index}>{day}</option>)}
+          </Select>
+          {errors.day_of_week && <p className="text-red-500 text-xs">{errors.day_of_week.message}</p>}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="start_time-edit-rec">Start Time</Label>
+            <Input id="start_time-edit-rec" type="time" {...register('start_time')} />
+            {errors.start_time && <p className="text-red-500 text-xs">{errors.start_time.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="end_time-edit-rec">End Time</Label>
+            <Input id="end_time-edit-rec" type="time" {...register('end_time')} />
+            {errors.end_time && <p className="text-red-500 text-xs">{errors.end_time.message}</p>}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="thumbnail-edit-rec">Thumbnail</Label>
+          {thumbnailPreview && <img src={thumbnailPreview} alt="Thumbnail preview" className="w-full h-40 object-cover rounded-lg my-2" />}
+          <Input id="thumbnail-edit-rec" type="file" accept="image/*" {...register('thumbnail')} onChange={handleThumbnailChange} />
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={closeModal} disabled={isSubmitting}>Cancel</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default EditRecurringClassModal;

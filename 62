@@ -1,0 +1,38 @@
+/*
+# [Critical Schema Correction] Rename 'video_stream_url' to 'video_url'
+This script corrects a critical mismatch between the application code and the database schema. The code expects a column named `video_url`, but the database has `video_stream_url`. This script renames the column to align them permanently.
+
+## Query Description:
+This operation is a structural change and is generally safe. It renames a column in the `tutors` table. It will not affect any existing data within that column. This script is idempotent and safe to run multiple times.
+
+## Metadata:
+- Schema-Category: "Structural"
+- Impact-Level: "Medium"
+- Requires-Backup: false
+- Reversible: true (by renaming back)
+
+## Structure Details:
+- Table: `public.tutors`
+- Column Renamed: `video_stream_url` -> `video_url`
+
+## Security Implications:
+- RLS Status: Unchanged
+- Policy Changes: No
+- Auth Requirements: None
+
+## Performance Impact:
+- Indexes: Indexes on the column will be renamed automatically.
+- Triggers: Unaffected.
+- Estimated Impact: Low. The operation is fast.
+*/
+
+DO $$
+BEGIN
+  -- Check if the problematic column 'video_stream_url' exists AND the target column 'video_url' does NOT exist.
+  IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tutors' AND column_name = 'video_stream_url')
+  AND NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tutors' AND column_name = 'video_url')
+  THEN
+    -- If the condition is met, perform the rename.
+    ALTER TABLE public.tutors RENAME COLUMN video_stream_url TO video_url;
+  END IF;
+END $$;

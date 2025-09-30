@@ -1,0 +1,60 @@
+/*
+          # [Operation Name] Revert to Public Write Access
+          [This operation removes authentication requirements for writing data, making the admin panel fully public again.]
+
+          ## Query Description: [This script removes the security policies that restrict write access (create, update, delete) to authenticated users and reinstates policies that grant these permissions to anonymous (public) users. This is necessary to allow the admin panel to function without a login system. This change reduces the security of your data, as anyone will be able to modify it.]
+          
+          ## Metadata:
+          - Schema-Category: ["Security"]
+          - Impact-Level: ["High"]
+          - Requires-Backup: [false]
+          - Reversible: [true]
+          
+          ## Structure Details:
+          [Affects Row Level Security policies on the following tables: batches, classes, tutors, notifications]
+          
+          ## Security Implications:
+          - RLS Status: [Enabled]
+          - Policy Changes: [Yes]
+          - Auth Requirements: [This removes the requirement for authentication on write operations.]
+          
+          ## Performance Impact:
+          - Indexes: [No change]
+          - Triggers: [No change]
+          - Estimated Impact: [None]
+          */
+
+-- Step 1: Drop the restrictive policies that require an authenticated user.
+DROP POLICY IF EXISTS "Allow full access for authenticated users" ON public.batches;
+DROP POLICY IF EXISTS "Allow full access for authenticated users" ON public.classes;
+DROP POLICY IF EXISTS "Allow full access for authenticated users" ON public.tutors;
+DROP POLICY IF EXISTS "Allow full access for authenticated users" ON public.notifications;
+
+-- Step 2: Re-create the permissive policies that allow public write access.
+CREATE POLICY "Allow public full access on batches"
+ON public.batches
+FOR ALL
+TO anon
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "Allow public full access on classes"
+ON public.classes
+FOR ALL
+TO anon
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "Allow public full access on tutors"
+ON public.tutors
+FOR ALL
+TO anon
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "Allow public full access on notifications"
+ON public.notifications
+FOR ALL
+TO anon
+USING (true)
+WITH CHECK (true);

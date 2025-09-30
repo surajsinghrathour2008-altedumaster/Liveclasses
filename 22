@@ -1,0 +1,40 @@
+import React from 'react';
+import { AppClassSession } from '@/types';
+import { Button } from './ui/Button';
+import { Pencil, Trash2 } from 'lucide-react';
+
+interface ClassCardProps {
+  session: AppClassSession;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}
+
+const ClassCard: React.FC<ClassCardProps> = ({ session, onEdit, onDelete }) => {
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-3 flex flex-col gap-2 border border-gray-700/50">
+      <img src={session.thumbnailUrl} alt={session.title} className="w-full h-24 object-cover rounded-md" />
+      <div>
+        <h3 className="font-semibold text-white truncate text-sm">{session.title}</h3>
+        <p className="text-xs text-gray-400">{session.tutor.name}</p>
+      </div>
+      <div className="text-xs text-gray-400 flex-grow">{`${formatTime(session.startTime)} - ${formatTime(session.endTime)}`}</div>
+      
+      {onEdit && onDelete && (
+        <div className="flex items-center justify-end gap-1 mt-1">
+            <Button variant="secondary" size="icon" className="h-7 w-7" onClick={onEdit}>
+                <Pencil size={14} />
+            </Button>
+            <Button variant="secondary" size="icon" className="h-7 w-7 bg-red-900/50 text-red-400 hover:bg-red-900/80" onClick={onDelete}>
+                <Trash2 size={14} />
+            </Button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ClassCard;

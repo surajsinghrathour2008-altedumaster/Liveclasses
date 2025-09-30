@@ -1,0 +1,69 @@
+import React, { createContext, useState, useContext, ReactNode } from 'react';
+
+type ModalType = 
+  | 'createRecurringClass' 
+  | 'editRecurringClass' 
+  | 'createBatch' 
+  | 'editBatch'
+  | 'createTutor'
+  | 'editTutor'
+  | 'createNotification'
+  | 'confirmDelete' 
+  | null;
+
+interface UIContextType {
+  modal: ModalType;
+  modalData: any;
+  openModal: (modal: ModalType, data?: any) => void;
+  closeModal: () => void;
+  refreshData: () => void;
+  triggerRefresh: number;
+  isNotificationPanelOpen: boolean;
+  toggleNotificationPanel: () => void;
+}
+
+const UIContext = createContext<UIContextType | undefined>(undefined);
+
+export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [modal, setModal] = useState<ModalType>(null);
+  const [modalData, setModalData] = useState<any>(null);
+  const [triggerRefresh, setTriggerRefresh] = useState(0);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+
+  const openModal = (modalType: ModalType, data: any = null) => {
+    setModalData(data);
+    setModal(modalType);
+  };
+  
+  const closeModal = () => {
+    setModal(null);
+    setModalData(null);
+  };
+
+  const refreshData = () => setTriggerRefresh(c => c + 1);
+
+  const toggleNotificationPanel = () => setIsNotificationPanelOpen(prev => !prev);
+
+  return (
+    <UIContext.Provider value={{ 
+      modal, 
+      modalData, 
+      openModal, 
+      closeModal, 
+      refreshData, 
+      triggerRefresh,
+      isNotificationPanelOpen,
+      toggleNotificationPanel
+    }}>
+      {children}
+    </UIContext.Provider>
+  );
+};
+
+export const useUI = (): UIContextType => {
+  const context = useContext(UIContext);
+  if (!context) {
+    throw new Error('useUI must be used within a UIProvider');
+  }
+  return context;
+};

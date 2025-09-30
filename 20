@@ -1,0 +1,57 @@
+import React from 'react';
+import { NavLink, Link } from 'react-router-dom';
+import { LayoutDashboard, Video, Box, BarChart2, Settings, ExternalLink, Users, Bell } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const navItems = [
+  { name: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
+  { name: 'Batches', icon: Box, path: '/admin/batches' },
+  { name: 'Tutors', icon: Users, path: '/admin/tutors' },
+  { name: 'Notifications', icon: Bell, path: '/admin/notifications' },
+  { name: 'Analytics', icon: BarChart2, path: '/admin/analytics' },
+  { name: 'Settings', icon: Settings, path: '/admin/settings' },
+];
+
+const Sidebar: React.FC = () => {
+  return (
+    <aside className="w-64 flex-shrink-0 bg-gray-800 p-6 hidden md:flex flex-col">
+      <div className="flex items-center gap-2 mb-12">
+        <div className="bg-gradient-to-r from-accent-start to-accent-end p-2 rounded-lg">
+          <Video className="text-white" />
+        </div>
+        <h1 className="text-2xl font-bold text-white">Codify</h1>
+      </div>
+      <nav className="flex-grow">
+        <Link 
+          to="/" 
+          target="_blank"
+          className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-300 bg-gray-700/50 hover:bg-gray-700 hover:text-white mb-6"
+        >
+          <ExternalLink size={20} />
+          <span>View Live Site</span>
+        </Link>
+        <ul>
+          {navItems.map((item) => (
+            <li key={item.name}>
+              <NavLink
+                to={item.path}
+                end={item.path === '/admin/dashboard'}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-400 hover:bg-gray-700 hover:text-white',
+                    { 'bg-gray-700 text-white': isActive }
+                  )
+                }
+              >
+                <item.icon size={20} />
+                <span>{item.name}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </aside>
+  );
+};
+
+export default Sidebar;

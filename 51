@@ -1,0 +1,56 @@
+/*
+# [Operation Name]
+Create Tutors Table and Restructure Classes
+
+[This migration introduces a new `tutors` table to manage instructors and their video streams. It also modifies the `classes` table to use a foreign key relationship to `tutors` instead of the old JSON `instructor` column.]
+
+## Query Description: [This operation will create a new `tutors` table and alter the existing `classes` table. The `instructor` column in `classes` will be dropped, and a new `tutor_id` column will be added. Any data in the old `instructor` column will be lost. This is a necessary step to create a more robust relational structure.]
+
+## Metadata:
+- Schema-Category: ["Structural", "Dangerous"]
+- Impact-Level: ["High"]
+- Requires-Backup: [true]
+- Reversible: [false]
+
+## Structure Details:
+- **New Table:** `public.tutors` (id, created_at, name, avatar_url, video_stream_url)
+- **Modified Table:** `public.classes`
+  - **Dropped Column:** `instructor` (JSON)
+  - **Added Column:** `tutor_id` (UUID, Foreign Key to `public.tutors`)
+
+## Security Implications:
+- RLS Status: [Enabled] on the new `tutors` table.
+- Policy Changes: [Yes] - New policies are created for the `tutors` table to allow `anon` role to perform CRUD operations, consistent with other tables.
+- Auth Requirements: [None for now, policies are for `anon` role]
+
+## Performance Impact:
+- Indexes: [A foreign key index will be automatically created on `classes.tutor_id`]
+- Triggers: [None]
+- Estimated Impact: [Low. This change improves data integrity and will make queries joining classes and tutors more efficient.]
+*/
+
+-- 1. Create the new 'tutors' table
+CREATE TABLE public.tutors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    name TEXT NOT NULL,
+    avatar_url TEXT,
+    video_stream_url TEXT NOT NULL
+);
+
+-- 2. Enable Row Level Security on the new table
+ALTER TABLE public.tutors ENABLE ROW LEVEL SECURITY;
+
+-- 3. Create policies for the 'tutors' table to allow access for anonymous users (for admin panel)
+CREATE POLICY "Allow public read access to tutors" ON public.tutors FOR SELECT USING (true);
+CREATE POLICY "Allow anon users to insert tutors" ON public.tutors FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anon users to update tutors" ON public.tutors FOR UPDATE USING (true);
+CREATE POLICY "Allow anon users to delete tutors" ON public.tutors FOR DELETE USING (true);
+
+-- 4. Alter the 'classes' table to use the new tutors relationship
+-- WARNING: This is a destructive action. The 'instructor' column and its data will be permanently removed.
+ALTER TABLE public.classes
+DROP COLUMN instructor;
+
+ALTER TABLE public.classes
+ADD COLUMN tutor_id UUID REFERENCES public.tutors(id) ON DELETE SET NULL;

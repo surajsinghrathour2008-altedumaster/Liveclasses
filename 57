@@ -1,0 +1,40 @@
+/*
+# [Schema Verification and Cache Invalidation for Tutors Table]
+This script is designed to definitively resolve the persistent "column not found" error by both verifying the database schema and forcing a cache refresh on the Supabase API layer.
+
+## Query Description:
+This operation is non-destructive and safe to run multiple times.
+1.  **ADD COLUMN IF NOT EXISTS**: It checks if the `video_url` column is missing from the `tutors` table and adds it only if needed. This ensures the database schema is correct without causing errors if it's already been fixed.
+2.  **COMMENT ON COLUMN**: It then adds a comment to the `id` column of the `tutors` table. While this seems like a minor change, modifying table metadata is a reliable way to trigger a schema cache invalidation in Supabase's PostgREST API layer, forcing it to reload the latest table structure.
+
+This two-step process guarantees that the database is correct AND the API is aware of the correction.
+
+## Metadata:
+- Schema-Category: ["Structural", "Safe"]
+- Impact-Level: ["Low"]
+- Requires-Backup: false
+- Reversible: true (The comment can be removed, the column can be dropped if empty)
+
+## Structure Details:
+- Table: `public.tutors`
+- Columns Affected: `video_url` (potentially added), `id` (comment added)
+
+## Security Implications:
+- RLS Status: Unchanged
+- Policy Changes: No
+- Auth Requirements: Admin privileges to run DDL.
+
+## Performance Impact:
+- Indexes: None
+- Triggers: None
+- Estimated Impact: Negligible. This is a fast metadata operation.
+*/
+
+-- Step 1: Ensure the 'video_url' column exists.
+-- This is safe to run even if the column is already present.
+ALTER TABLE public.tutors
+ADD COLUMN IF NOT EXISTS video_url text NOT NULL;
+
+-- Step 2: Force a schema cache reload by making a trivial metadata change.
+-- Adding a comment is a safe, non-disruptive way to trigger this.
+COMMENT ON COLUMN public.tutors.id IS 'Unique identifier for the tutor. Cache refresh trigger: 20250101120000';

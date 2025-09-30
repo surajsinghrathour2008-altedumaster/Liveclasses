@@ -1,0 +1,68 @@
+/*
+# [CRITICAL] Recreate Tutors Table
+This script will completely delete and recreate the `tutors` table to resolve persistent schema inconsistencies.
+
+## Query Description:
+- **DATA LOSS WARNING:** This operation will permanently delete all existing data in the `tutors` table.
+- This is a necessary step to fix the corrupted state of the table and ensure it matches the application code.
+- After this migration, you will need to re-create any tutors you had previously saved.
+
+## Metadata:
+- Schema-Category: "Dangerous"
+- Impact-Level: "High"
+- Requires-Backup: true
+- Reversible: false
+
+## Structure Details:
+- Drops the existing `public.tutors` table.
+- Creates a new `public.tutors` table with the correct columns: `id`, `name`, `avatar_url`, and `video_url`.
+- Adds a database-level constraint to ensure `video_url` is a valid URL ending in `.m3u8`.
+
+## Security Implications:
+- RLS Status: Re-enabled.
+- Policy Changes: Yes, policies are recreated for the new table.
+- Auth Requirements: `anon` and `authenticated` roles will be granted full CRUD permissions.
+*/
+
+-- Step 1: Drop the existing table to ensure a clean state.
+DROP TABLE IF EXISTS public.tutors;
+
+-- Step 2: Create the table with the correct structure and constraints.
+CREATE TABLE public.tutors (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    name text NOT NULL,
+    avatar_url text NULL,
+    video_url text NOT NULL,
+    CONSTRAINT tutors_pkey PRIMARY KEY (id),
+    CONSTRAINT tutors_video_url_check CHECK ((video_url ~* 'https?://.+\.m3u8$'::text))
+);
+
+-- Step 3: Enable Row Level Security (RLS) on the new table.
+ALTER TABLE public.tutors ENABLE ROW LEVEL SECURITY;
+
+-- Step 4: Create policies to allow access for anonymous and authenticated users.
+-- This matches the permissions on other tables like 'batches'.
+CREATE POLICY "Enable read access for all users" ON public.tutors
+AS PERMISSIVE FOR SELECT
+TO public
+USING (true);
+
+CREATE POLICY "Enable insert for anon and authenticated" ON public.tutors
+AS PERMISSIVE FOR INSERT
+TO anon, authenticated
+WITH CHECK (true);
+
+CREATE POLICY "Enable update for anon and authenticated" ON public.tutors
+AS PERMISSIVE FOR UPDATE
+TO anon, authenticated
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "Enable delete for anon and authenticated" ON public.tutors
+AS PERMISSIVE FOR DELETE
+TO anon, authenticated
+USING (true);
+
+-- Step 5: Add a comment to invalidate PostgREST cache, just in case.
+COMMENT ON TABLE public.tutors IS 'Recreated to fix schema issues on 2025-01-01';

@@ -1,0 +1,85 @@
+import React, { useEffect } from 'react';
+import toast from 'react-hot-toast';
+import { useUI } from '@/context/UIContext';
+import { updateTutor } from '@/services/api';
+import { Tutor } from '@/types';
+import Modal from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Button } from '@/components/ui/Button';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const tutorSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  video_url: z.string().url('Must be a valid URL').refine(s => s.endsWith('.m3u8'), 'URL must end with .m3u8'),
+});
+
+type TutorFormValues = z.infer<typeof tutorSchema>;
+
+interface EditTutorModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const EditTutorModal: React.FC<EditTutorModalProps> = ({ isOpen, onClose }) => {
+  const { modalData, refreshData, closeModal } = useUI();
+  const tutor = modalData as Tutor | null;
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<TutorFormValues>({
+    resolver: zodResolver(tutorSchema),
+  });
+
+  useEffect(() => {
+    if (isOpen && tutor) {
+      reset({
+        name: tutor.name,
+        video_url: tutor.video_url,
+      });
+    }
+  }, [isOpen, tutor, reset]);
+
+  const onSubmit = async (data: TutorFormValues) => {
+    if (!tutor) return toast.error("Tutor data not found.");
+
+    const promise = updateTutor(tutor.id, data);
+
+    toast.promise(promise, {
+      loading: 'Updating tutor...',
+      success: () => {
+        refreshData();
+        closeModal();
+        return 'Tutor updated successfully!';
+      },
+      error: (err) => `Error: ${err.message}`,
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={closeModal} title="Edit Tutor">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="tutor-name-edit">Tutor Name</Label>
+          <Input id="tutor-name-edit" {...register('name')} />
+          {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="tutor-video-url-edit">Video Stream URL (.m3u8)</Label>
+          <Input id="tutor-video-url-edit" {...register('video_url')} />
+          {errors.video_url && <p className="text-red-500 text-xs">{errors.video_url.message}</p>}
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={closeModal} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default EditTutorModal;

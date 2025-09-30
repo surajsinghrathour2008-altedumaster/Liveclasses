@@ -1,0 +1,92 @@
+import React, { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
+import { useUI } from '@/context/UIContext';
+import CreateBatchModal from '@/components/modals/CreateBatchModal';
+import EditBatchModal from '@/components/modals/EditBatchModal';
+import ConfirmDeleteModal from '@/components/modals/ConfirmDeleteModal';
+import CreateTutorModal from '@/components/modals/CreateTutorModal';
+import EditTutorModal from '@/components/modals/EditTutorModal';
+import CreateNotificationModal from '@/components/modals/CreateNotificationModal';
+import NotificationPanel from '@/components/NotificationPanel';
+import { deleteBatch, deleteRecurringClass, deleteNotification, deleteTutor } from '@/services/api';
+import CreateRecurringClassModal from '@/components/modals/CreateRecurringClassModal';
+import EditRecurringClassModal from '@/components/modals/EditRecurringClassModal';
+
+const AdminLayout: React.FC = () => {
+  const { modal, modalData, closeModal, refreshData, isNotificationPanelOpen, toggleNotificationPanel } = useUI();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!modalData?.id || !modalData?.type) return;
+
+    setIsDeleting(true);
+    let promise;
+    
+    switch (modalData.type) {
+      case 'batch':
+        promise = deleteBatch(modalData.id);
+        break;
+      case 'recurring-class':
+        promise = deleteRecurringClass(modalData.id);
+        break;
+      case 'tutor':
+        promise = deleteTutor(modalData.id);
+        break;
+      case 'notification':
+        promise = deleteNotification(modalData.id);
+        break;
+      default:
+        promise = Promise.reject(new Error("Deletion for this item type is not configured."));
+    }
+
+    toast.promise(promise, {
+        loading: `Deleting ${modalData.type.replace('-', ' ')}...`,
+        success: () => {
+            refreshData();
+            closeModal();
+            return `${modalData.type.charAt(0).toUpperCase() + modalData.type.slice(1).replace('-', ' ')} deleted successfully!`;
+        },
+        error: (err) => `Error: ${err.message}`,
+    }).finally(() => {
+        setIsDeleting(false);
+    });
+  };
+
+  const deleteInfo = {
+    title: `Delete ${modalData?.type?.replace('-', ' ') || 'Item'}`,
+    message: `Are you sure you want to delete "${modalData?.name || 'this item'}"? This action is permanent and cannot be undone.`
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-900 text-white">
+      <Sidebar />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <Header />
+        <div className="flex-1 overflow-y-auto p-8">
+          <Outlet />
+        </div>
+      </main>
+      <CreateRecurringClassModal isOpen={modal === 'createRecurringClass'} />
+      <EditRecurringClassModal isOpen={modal === 'editRecurringClass'} />
+      <CreateBatchModal isOpen={modal === 'createBatch'} onClose={closeModal} />
+      <EditBatchModal isOpen={modal === 'editBatch'} onClose={closeModal} />
+      <CreateTutorModal isOpen={modal === 'createTutor'} onClose={closeModal} />
+      <EditTutorModal isOpen={modal === 'editTutor'} onClose={closeModal} />
+      <CreateNotificationModal isOpen={modal === 'createNotification'} onClose={closeModal} />
+      <ConfirmDeleteModal 
+        isOpen={modal === 'confirmDelete'} 
+        onClose={closeModal}
+        onConfirm={handleDelete}
+        title={deleteInfo.title}
+        message={deleteInfo.message}
+        isSubmitting={isDeleting}
+      />
+      <NotificationPanel isOpen={isNotificationPanelOpen} onClose={toggleNotificationPanel} />
+    </div>
+  );
+};
+
+export default AdminLayout;

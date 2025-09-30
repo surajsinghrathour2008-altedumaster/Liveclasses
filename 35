@@ -1,0 +1,275 @@
+import { supabase } from '@/lib/supabase';
+import { AppClassSession, Batch, Tutor, Notification, RecurringClass } from '@/types';
+import { Database } from '@/types/supabase';
+
+type ClassStatus = 'live' | 'upcoming' | 'completed';
+type NewRecurringClass = Database['public']['Tables']['recurring_classes']['Insert'];
+type UpdateRecurringClass = Database['public']['Tables']['recurring_classes']['Update'];
+type NewTutor = Database['public']['Tables']['tutors']['Insert'];
+type UpdateTutor = Database['public']['Tables']['tutors']['Update'];
+type NewNotification = Database['public']['Tables']['notifications']['Insert'];
+
+// --- Recurring Class to AppClassSession Transformation ---
+
+// This is the new core logic. It takes recurring class templates and generates
+// concrete, dated class sessions that the UI can display.
+const generateSessionsFromRecurring = (
+  recurringClasses: (RecurringClass & { batches: { name: string } | null })[]
+): AppClassSession[] => {
+  const now = new Date();
+  const materializedSessions: AppClassSession[] = [];
+
+  recurringClasses.forEach(rc => {
+    // Generate instances for a window of time (e.g., past week to next two weeks)
+    // to correctly categorize everything.
+    for (let i = -7; i <= 14; i++) {
+      const dateToCheck = new Date();
+      dateToCheck.setDate(now.getDate() + i);
+      
+      // Check if the day of the week matches the recurring class's scheduled day
+      if (dateToCheck.getDay() === rc.day_of_week) {
+        const [startHour, startMinute] = rc.start_time.split(':').map(Number);
+        const [endHour, endMinute] = rc.end_time.split(':').map(Number);
+
+        const startTime = new Date(dateToCheck);
+        startTime.setHours(startHour, startMinute, 0, 0);
+
+        const endTime = new Date(dateToCheck);
+        endTime.setHours(endHour, endMinute, 0, 0);
+
+        // Add the generated session to the list
+        materializedSessions.push({
+          id: `${rc.id}-${startTime.toISOString().split('T')[0]}`, // Unique ID for this instance
+          recurring_class_id: rc.id,
+          title: rc.title,
+          batch: rc.batches?.name || 'Unknown Batch',
+          batchId: rc.batch_id,
+          startTime,
+          endTime,
+          thumbnailUrl: rc.thumbnail_url || 'https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://img-wrapper.vercel.app/image?url=https://placehold.co/400x225/1C1C22/E0E0E6?text=No+Image',
+          tutor: rc.tutors,
+        });
+      }
+    }
+  });
+
+  return materializedSessions;
+};
+
+
+export const getClassesByStatus = async (status: ClassStatus): Promise<AppClassSession[]> => {
+  const now = new Date();
+  
+  const { data, error } = await supabase
+    .from('recurring_classes')
+    .select(`
+        *,
+        batches ( name ),
+        tutors ( * )
+    `);
+
+  if (error) {
+    console.error('Error fetching recurring classes:', error);
+    throw new Error(error.message);
+  }
+
+  const allPossibleSessions = generateSessionsFromRecurring(data);
+
+  const filteredSessions = allPossibleSessions.filter(session => {
+    if (status === 'live') {
+      return session.startTime <= now && session.endTime > now;
+    }
+    if (status === 'upcoming') {
+      // The class must be in the future AND its date must be today's date.
+      const isToday = session.startTime.toDateString() === now.toDateString();
+      return session.startTime > now && isToday;
+    }
+    if (status === 'completed') {
+      return session.endTime <= now;
+    }
+    return false;
+  });
+
+  // Sort the results
+  filteredSessions.sort((a, b) => {
+    if (status === 'completed') {
+      return b.startTime.getTime() - a.startTime.getTime(); // Newest completed first
+    }
+    return a.startTime.getTime() - b.startTime.getTime(); // Oldest upcoming/live first
+  });
+
+  return filteredSessions;
+};
+
+// New function to efficiently fetch only today's classes for the notification service
+export const getTodaysRecurringClasses = async (): Promise<(RecurringClass & { batches: { name: string } | null })[]> => {
+    const today = new Date().getDay();
+    const { data, error } = await supabase
+        .from('recurring_classes')
+        .select(`
+            *,
+            batches ( name ),
+            tutors ( * )
+        `)
+        .eq('day_of_week', today);
+
+    if (error) {
+        console.error('Error fetching today\'s recurring classes:', error);
+        throw new Error(error.message);
+    }
+    return data;
+}
+
+export const getRecurringClassesForBatch = async (batchId: string): Promise<RecurringClass[]> => {
+    const { data, error } = await supabase
+        .from('recurring_classes')
+        .select(`*, tutors(*)`)
+        .eq('batch_id', batchId)
+        .order('day_of_week', { ascending: true })
+        .order('start_time', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching recurring classes for batch:', error);
+        throw new Error(error.message);
+    }
+    
+    return data;
+}
+
+// --- Batch Management (Unchanged) ---
+export const getBatches = async (): Promise<Batch[]> => {
+    const { data, error } = await supabase.from('batches').select('*').order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const getBatchById = async (id: string): Promise<Batch> => {
+    const { data, error } = await supabase.from('batches').select('*').eq('id', id).single();
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const createBatch = async (name: string, description: string | null): Promise<Batch> => {
+    const { data, error } = await supabase.from('batches').insert({ name, description }).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const updateBatch = async (id: string, updates: { name: string, description: string | null }): Promise<Batch> => {
+    const { data, error } = await supabase.from('batches').update(updates).eq('id', id).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const deleteBatch = async (id: string): Promise<void> => {
+    const { error } = await supabase.from('batches').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+}
+
+// --- Tutor Management (Unchanged) ---
+export const getTutors = async (): Promise<Tutor[]> => {
+    const { data, error } = await supabase.from('tutors').select('*').order('name', { ascending: true });
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const createTutor = async (tutorData: NewTutor): Promise<Tutor> => {
+    const { data, error } = await supabase.from('tutors').insert(tutorData).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const updateTutor = async (id: string, tutorData: UpdateTutor): Promise<Tutor> => {
+    const { data, error } = await supabase.from('tutors').update(tutorData).eq('id', id).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const deleteTutor = async (id: string): Promise<void> => {
+    const { error } = await supabase.from('tutors').delete().eq('id', id);
+    if (error) {
+      if(error.code === '23503') { // Foreign key violation
+        throw new Error("Cannot delete tutor. They are assigned to one or more classes.");
+      }
+      throw new Error(error.message);
+    }
+}
+
+// --- Recurring Class Management ---
+const handleThumbnailUpload = async (file: File, oldUrl?: string | null): Promise<string> => {
+    if (oldUrl) {
+        try {
+            const oldPath = oldUrl.split('/thumbnails/')[1];
+            if (oldPath) await supabase.storage.from('thumbnails').remove([oldPath]);
+        } catch (e) { console.warn("Could not delete old thumbnail.", e); }
+    }
+
+    const filePath = `public/${Date.now()}-${file.name.replace(/\s/g, '_')}`;
+    const { error: uploadError } = await supabase.storage.from('thumbnails').upload(filePath, file);
+    if (uploadError) throw new Error('Failed to upload thumbnail.');
+
+    const { data: urlData } = supabase.storage.from('thumbnails').getPublicUrl(filePath);
+    return urlData.publicUrl;
+};
+
+export const createRecurringClass = async (classData: NewRecurringClass, thumbnailFile?: File): Promise<any> => {
+    let finalClassData = { ...classData };
+
+    if (thumbnailFile) {
+        const thumbnailUrl = await handleThumbnailUpload(thumbnailFile);
+        finalClassData.thumbnail_url = thumbnailUrl;
+    }
+
+    const { error } = await supabase.from('recurring_classes').insert(finalClassData);
+    if (error) throw new Error(error.message);
+}
+
+export const updateRecurringClass = async (id: string, classData: UpdateRecurringClass, thumbnailFile?: File, oldThumbnailUrl?: string | null): Promise<any> => {
+    let finalClassData = { ...classData };
+
+    if (thumbnailFile) {
+        const thumbnailUrl = await handleThumbnailUpload(thumbnailFile, oldThumbnailUrl);
+        finalClassData.thumbnail_url = thumbnailUrl;
+    }
+
+    const { error } = await supabase.from('recurring_classes').update(finalClassData).eq('id', id);
+    if (error) throw new Error(error.message);
+}
+
+export const deleteRecurringClass = async (id: string): Promise<void> => {
+    const { data: classData, error: fetchError } = await supabase.from('recurring_classes').select('thumbnail_url').eq('id', id).single();
+    if (fetchError) throw new Error('Could not find class to delete.');
+
+    if (classData?.thumbnail_url) {
+        try {
+            const path = classData.thumbnail_url.split('/thumbnails/')[1];
+            if (path) await supabase.storage.from('thumbnails').remove([path]);
+        } catch (e) { console.warn("Could not delete thumbnail.", e); }
+    }
+
+    const { error: deleteError } = await supabase.from('recurring_classes').delete().eq('id', id);
+    if (deleteError) throw new Error(deleteError.message);
+}
+
+// --- Notification Management (Unchanged) ---
+export const getNotifications = async (): Promise<Notification[]> => {
+    const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const createNotification = async (notificationData: NewNotification): Promise<Notification> => {
+    const { data, error } = await supabase.from('notifications').insert(notificationData).select().single();
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export const deleteNotification = async (id: number): Promise<void> => {
+    const { error } = await supabase.from('notifications').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+}
+
+export const markAllNotificationsAsRead = async (): Promise<void> => {
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+    if (error) throw new Error(error.message);
+}

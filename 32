@@ -1,0 +1,97 @@
+/*
+      # Initial Schema Setup
+      This script establishes the foundational database structure for the Codify application, including tables for batches, classes, and notifications, along with a storage bucket for thumbnails.
+
+      ## Query Description: 
+      This is a foundational setup and is safe to run on a new project. It creates new tables and a storage bucket without altering or deleting any existing data. It also enables Row Level Security to ensure a secure-by-default posture, initially allowing public read-only access to the data.
+
+      ## Metadata:
+      - Schema-Category: "Structural"
+      - Impact-Level: "Low"
+      - Requires-Backup: false
+      - Reversible: true
+      
+      ## Structure Details:
+      - Tables Created: `batches`, `classes`, `notifications`
+      - Storage Buckets Created: `thumbnails`
+      - RLS Policies: Enables RLS and creates read-only policies for all new tables.
+      
+      ## Security Implications:
+      - RLS Status: Enabled for all new tables.
+      - Policy Changes: Yes, new read-only policies are created.
+      - Auth Requirements: No specific auth requirements for read access. Write access will be restricted until further policies are added.
+      
+      ## Performance Impact:
+      - Indexes: Primary keys are automatically indexed. No other indexes added at this stage.
+      - Triggers: None.
+      - Estimated Impact: Negligible performance impact.
+      */
+
+-- 1. Create batches table
+CREATE TABLE
+  public.batches (
+    id UUID NOT NULL DEFAULT gen_random_uuid (),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    name TEXT NOT NULL,
+    description TEXT NULL,
+    CONSTRAINT batches_pkey PRIMARY KEY (id)
+  );
+
+-- 2. Create classes table
+CREATE TABLE
+  public.classes (
+    id UUID NOT NULL DEFAULT gen_random_uuid (),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    title TEXT NOT NULL,
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
+    thumbnail_url TEXT NULL,
+    instructor_name TEXT NULL,
+    instructor_avatar_url TEXT NULL,
+    batch_id UUID NULL,
+    CONSTRAINT classes_pkey PRIMARY KEY (id),
+    CONSTRAINT classes_batch_id_fkey FOREIGN KEY (batch_id) REFERENCES public.batches (id) ON DELETE SET NULL
+  );
+
+-- 3. Create notifications table
+CREATE TABLE
+  public.notifications (
+    id UUID NOT NULL DEFAULT gen_random_uuid (),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT notifications_pkey PRIMARY KEY (id)
+  );
+
+-- 4. Set up Storage for Thumbnails
+INSERT INTO
+  storage.buckets (id, name, public)
+VALUES
+  ('thumbnails', 'thumbnails', TRUE) ON CONFLICT (id) DO NOTHING;
+
+-- 5. Enable Row Level Security (RLS)
+ALTER TABLE public.batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+-- 6. Create RLS policies for public read access
+CREATE POLICY "Allow public read access to batches" ON public.batches FOR
+SELECT
+  USING (TRUE);
+
+CREATE POLICY "Allow public read access to classes" ON public.classes FOR
+SELECT
+  USING (TRUE);
+
+CREATE POLICY "Allow public read access to notifications" ON public.notifications FOR
+SELECT
+  USING (TRUE);
+
+CREATE POLICY "Allow public read access to thumbnails" ON storage.objects FOR
+SELECT
+  USING (bucket_id = 'thumbnails');
+
+CREATE POLICY "Allow authenticated users to upload thumbnails" ON storage.objects FOR INSERT
+WITH
+  CHECK (bucket_id = 'thumbnails');

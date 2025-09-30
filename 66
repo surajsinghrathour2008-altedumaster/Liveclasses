@@ -1,0 +1,87 @@
+/*
+          # [Operation Name]
+          Update RLS Policies for Authentication
+
+          ## Query Description: 
+          This operation significantly enhances security by restricting write access (creating, updating, deleting) to authenticated (logged-in) users only. Anonymous users will still be able to view data (e.g., on the public class schedule) but will be blocked from making any changes. This is a critical step in securing the admin panel. No data will be lost, but anonymous write access will be revoked.
+          
+          ## Metadata:
+          - Schema-Category: "Structural"
+          - Impact-Level: "High"
+          - Requires-Backup: false
+          - Reversible: true
+          
+          ## Structure Details:
+          - Affects RLS policies on tables: `batches`, `classes`, `tutors`, `notifications`.
+          
+          ## Security Implications:
+          - RLS Status: Enabled
+          - Policy Changes: Yes. This is the core of the change.
+          - Auth Requirements: This migration prepares the database for a full authentication system.
+          
+          ## Performance Impact:
+          - Indexes: None
+          - Triggers: None
+          - Estimated Impact: Negligible performance impact. RLS checks are highly optimized in PostgreSQL.
+          */
+
+-- First, drop the existing permissive policies for the 'anon' role.
+-- We will be more specific now.
+DROP POLICY IF EXISTS "Allow anonymous read access" ON public.batches;
+DROP POLICY IF EXISTS "Allow anonymous write access" ON public.batches;
+DROP POLICY IF EXISTS "Allow anonymous read access" ON public.classes;
+DROP POLICY IF EXISTS "Allow anonymous write access" ON public.classes;
+DROP POLICY IF EXISTS "Allow anonymous read access" ON public.tutors;
+DROP POLICY IF EXISTS "Allow anonymous write access" ON public.tutors;
+DROP POLICY IF EXISTS "Allow anonymous read access" ON public.notifications;
+DROP POLICY IF EXISTS "Allow anonymous write access" ON public.notifications;
+
+-- Also drop the old authenticated policies to recreate them with a consistent naming scheme.
+DROP POLICY IF EXISTS "Allow authenticated read access" ON public.batches;
+DROP POLICY IF EXISTS "Allow authenticated write access" ON public.batches;
+DROP POLICY IF EXISTS "Allow authenticated read access" ON public.classes;
+DROP POLICY IF EXISTS "Allow authenticated write access" ON public.classes;
+DROP POLICY IF EXISTS "Allow authenticated read access" ON public.tutors;
+DROP POLICY IF EXISTS "Allow authenticated write access" ON public.tutors;
+DROP POLICY IF EXISTS "Allow authenticated read access" ON public.notifications;
+DROP POLICY IF EXISTS "Allow authenticated write access" ON public.notifications;
+
+
+-- == BATCHES ==
+-- 1. Public users (anonymous) can read all batches.
+CREATE POLICY "Public can read all batches" ON public.batches
+  FOR SELECT USING (true);
+
+-- 2. Authenticated users can do everything.
+CREATE POLICY "Authenticated users can manage batches" ON public.batches
+  FOR ALL USING (auth.role() = 'authenticated');
+
+
+-- == TUTORS ==
+-- 1. Public users can read all tutors.
+CREATE POLICY "Public can read all tutors" ON public.tutors
+  FOR SELECT USING (true);
+
+-- 2. Authenticated users can do everything.
+CREATE POLICY "Authenticated users can manage tutors" ON public.tutors
+  FOR ALL USING (auth.role() = 'authenticated');
+
+
+-- == CLASSES ==
+-- 1. Public users can read all classes.
+CREATE POLICY "Public can read all classes" ON public.classes
+  FOR SELECT USING (true);
+
+-- 2. Authenticated users can do everything.
+CREATE POLICY "Authenticated users can manage classes" ON public.classes
+  FOR ALL USING (auth.role() = 'authenticated');
+
+
+-- == NOTIFICATIONS ==
+-- 1. Public users can read all notifications.
+CREATE POLICY "Public can read all notifications" ON public.notifications
+  FOR SELECT USING (true);
+
+-- 2. Authenticated users can do everything.
+CREATE POLICY "Authenticated users can manage notifications" ON public.notifications
+  FOR ALL USING (auth.role() = 'authenticated');

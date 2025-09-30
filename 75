@@ -1,0 +1,9 @@
+-- This script removes the avatar_url column from the tutors table.
+-- This is a destructive action and will permanently delete all stored avatar URLs.
+
+BEGIN;
+
+ALTER TABLE public.tutors
+DROP COLUMN IF EXISTS avatar_url;
+
+COMMIT;

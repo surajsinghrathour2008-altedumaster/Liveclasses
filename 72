@@ -1,0 +1,127 @@
+import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
+import { useUI } from '@/context/UIContext';
+import { getTutors, createRecurringClass } from '@/services/api';
+import { Tutor } from '@/types';
+import Modal from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const recurringClassSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  tutor_id: z.string().uuid('Please select a tutor'),
+  start_time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format'),
+  end_time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format'),
+  thumbnail: z.instanceof(FileList).optional(),
+}).refine(data => data.end_time > data.start_time, {
+  message: "End time must be after start time",
+  path: ["end_time"],
+});
+
+type RecurringClassFormValues = z.infer<typeof recurringClassSchema>;
+
+const WEEK_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const CreateRecurringClassModal: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
+  const { modalData, refreshData, closeModal } = useUI();
+  const { batchId, dayOfWeek } = modalData || {};
+  
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [isLoadingTutors, setIsLoadingTutors] = useState(true);
+
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<RecurringClassFormValues>({
+    resolver: zodResolver(recurringClassSchema),
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsLoadingTutors(true);
+      getTutors()
+        .then(setTutors)
+        .catch(() => toast.error("Could not load tutors."))
+        .finally(() => setIsLoadingTutors(false));
+    } else {
+      reset();
+    }
+  }, [isOpen, reset]);
+
+  const onSubmit = async (formData: RecurringClassFormValues) => {
+    if (!batchId || dayOfWeek === undefined) {
+      return toast.error("Batch or day information is missing.");
+    }
+
+    const { thumbnail, ...restOfFormData } = formData;
+    const classData = {
+      ...restOfFormData,
+      batch_id: batchId,
+      day_of_week: dayOfWeek,
+      start_time: `${formData.start_time}:00`,
+      end_time: `${formData.end_time}:00`,
+    };
+    
+    const thumbnailFile = thumbnail?.[0];
+
+    const promise = createRecurringClass(classData, thumbnailFile);
+
+    toast.promise(promise, {
+      loading: 'Scheduling recurring class...',
+      success: () => {
+        refreshData();
+        closeModal();
+        return 'Class scheduled successfully!';
+      },
+      error: (err) => `Error: ${err.message}`,
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={closeModal} title={`Schedule Recurring Class for ${WEEK_DAYS[dayOfWeek] || ''}`}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="title-rec">Class Title</Label>
+          <Input id="title-rec" {...register('title')} />
+          {errors.title && <p className="text-red-500 text-xs">{errors.title.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="tutor_id-rec">Tutor</Label>
+          <Select id="tutor_id-rec" {...register('tutor_id')} disabled={isLoadingTutors || tutors.length === 0}>
+            {isLoadingTutors ? <option>Loading tutors...</option> : 
+              tutors.length === 0 ? <option>Please create a tutor first</option> :
+              tutors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)
+            }
+          </Select>
+          {errors.tutor_id && <p className="text-red-500 text-xs">{errors.tutor_id.message}</p>}
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="start_time-rec">Start Time</Label>
+            <Input id="start_time-rec" type="time" {...register('start_time')} />
+            {errors.start_time && <p className="text-red-500 text-xs">{errors.start_time.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="end_time-rec">End Time</Label>
+            <Input id="end_time-rec" type="time" {...register('end_time')} />
+            {errors.end_time && <p className="text-red-500 text-xs">{errors.end_time.message}</p>}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="thumbnail-rec">Thumbnail (Optional)</Label>
+          <Input id="thumbnail-rec" type="file" accept="image/*" {...register('thumbnail')} />
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={closeModal} disabled={isSubmitting}>Cancel</Button>
+          <Button type="submit" disabled={isSubmitting || tutors.length === 0}>
+            {isSubmitting ? 'Scheduling...' : 'Schedule Class'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default CreateRecurringClassModal;

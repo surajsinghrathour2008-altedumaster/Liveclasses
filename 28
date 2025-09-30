@@ -1,0 +1,81 @@
+import React, { useMemo, useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import UserClassCard from '@/components/UserClassCard';
+import { Search } from 'lucide-react';
+import { UserLayoutContextType } from '@/layouts/UserLayout';
+import { getClassesByStatus } from '@/services/api';
+import { AppClassSession } from '@/types';
+import { Skeleton } from '@/components/ui/Skeleton';
+
+const HomePage: React.FC = () => {
+  const { activeTab, setActiveTab } = useOutletContext<UserLayoutContextType>();
+  const [classes, setClasses] = useState<AppClassSession[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchClasses = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const fetchedClasses = await getClassesByStatus(activeTab);
+        setClasses(fetchedClasses);
+      } catch (err) {
+        setError('Failed to load classes. Please try again later.');
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchClasses();
+  }, [activeTab]);
+
+  return (
+    <>
+      <div className="md:hidden mb-6">
+        <select
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as 'live' | 'upcoming' | 'completed')}
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent-start"
+        >
+          <option value="live">Live</option>
+          <option value="upcoming">Upcoming</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+      
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-4">
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-10 w-full mt-4" />
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="col-span-full flex flex-col items-center justify-center text-center py-20 bg-gray-800/50 rounded-xl">
+          <h3 className="text-xl font-semibold text-red-500">Error</h3>
+          <p className="text-gray-400 mt-2">{error}</p>
+        </div>
+      ) : classes.length === 0 ? (
+        <div className="col-span-full flex flex-col items-center justify-center text-center py-20 bg-gray-800/50 rounded-xl">
+          <Search size={48} className="text-gray-600 mb-4" />
+          <h3 className="text-xl font-semibold text-white">No Classes Found</h3>
+          <p className="text-gray-400 mt-2">There are currently no {activeTab} classes available.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {classes.map(session => (
+            <UserClassCard key={session.id} session={session} />
+          ))}
+        </div>
+      )}
+    </>
+  );
+};
+
+export default HomePage;

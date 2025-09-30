@@ -1,0 +1,5 @@
+<dualiteAction type="file" filePath="src/components/ClassCard.tsx" isDeleted="true" />
+<dualiteAction type="file" filePath="src/components/modals/EditClassModal.tsx" isDeleted="true" />
+<dualiteAction type="file" filePath="src/components/modals/ScheduleClassModal.tsx" isDeleted="true" />
+<dualiteAction type="shell">
+yarn run dev

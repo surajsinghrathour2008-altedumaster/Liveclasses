@@ -1,0 +1,38 @@
+/*
+# [Schema Correction] Rename Tutor Video URL Column
+This migration corrects a naming inconsistency for the tutor's video URL column. It renames `video_stream_url` to `video_url` to match the application code.
+
+## Query Description:
+This operation is a safe, structural change. It renames a column and does not affect existing data. It checks for the existence of the columns before attempting to rename to prevent errors on re-runs.
+
+## Metadata:
+- Schema-Category: "Structural"
+- Impact-Level: "Low"
+- Requires-Backup: false
+- Reversible: true (Can be reversed by renaming `video_url` back to `video_stream_url`)
+
+## Structure Details:
+- Table: `public.tutors`
+- Column Renamed: `video_stream_url` -> `video_url`
+
+## Security Implications:
+- RLS Status: Unchanged
+- Policy Changes: No
+- Auth Requirements: None
+
+## Performance Impact:
+- Indexes: Unchanged
+- Triggers: Unchanged
+- Estimated Impact: Negligible. This is a metadata change.
+*/
+
+DO $$
+BEGIN
+  -- Check if the incorrect column 'video_stream_url' exists
+  IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name='tutors' AND column_name='video_stream_url') THEN
+    -- Check if the correct column 'video_url' does NOT exist before renaming
+    IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name='tutors' AND column_name='video_url') THEN
+      ALTER TABLE public.tutors RENAME COLUMN video_stream_url TO video_url;
+    END IF;
+  END IF;
+END $$;

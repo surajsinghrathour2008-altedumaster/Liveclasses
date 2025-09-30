@@ -1,0 +1,80 @@
+import React from 'react';
+import { AppClassSession } from '@/types';
+import { Button } from './ui/Button';
+import { Badge } from './ui/Badge';
+import { Video, Clock, Radio, User } from 'lucide-react';
+
+interface UserClassCardProps {
+  session: AppClassSession;
+  status?: 'live' | 'upcoming' | 'completed';
+}
+
+const UserClassCard: React.FC<UserClassCardProps> = ({ session, status }) => {
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  const getStatus = () => {
+    if (status) return status;
+    const now = new Date();
+    if (session.startTime <= now && session.endTime > now) return 'live';
+    if (session.startTime > now) return 'upcoming';
+    return 'completed';
+  }
+
+  const currentStatus = getStatus();
+
+  const getActionButton = () => {
+    switch (currentStatus) {
+      case 'live':
+        return <Button asChild className="w-full"><a href={session.tutor.video_url} target="_blank" rel="noopener noreferrer"><Radio size={16} className="mr-2 animate-pulse" /> Join Now</a></Button>;
+      case 'upcoming':
+        return <Button variant="secondary" className="w-full">Set Reminder</Button>;
+      case 'completed':
+        return <Button variant="secondary" className="w-full"><Video size={16} className="mr-2" /> Watch Recording</Button>;
+    }
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-xl overflow-hidden flex flex-col group transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-accent-start/10">
+      <div className="relative">
+        <img src={session.thumbnailUrl} alt={session.title} className="w-full h-40 object-cover" />
+        {currentStatus === 'live' && (
+          <div className="absolute top-3 right-3">
+            <Badge variant="live">LIVE</Badge>
+          </div>
+        )}
+      </div>
+      <div className="p-4 flex flex-col flex-grow">
+        <p className="text-sm text-gray-400 mb-1">{session.batch}</p>
+        <h3 className="font-semibold text-white truncate flex-grow">{session.title}</h3>
+        
+        <div className="flex items-center gap-4 text-xs text-gray-400 my-3">
+          <div className="flex items-center gap-1.5">
+            <Clock size={14} />
+            <span>{formatTime(session.startTime)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span>{formatDate(session.startTime)}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 mt-auto pt-3 border-t border-gray-700">
+          <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+            <User size={16} className="text-gray-400" />
+          </div>
+          <p className="text-sm text-gray-300 font-medium">{session.tutor.name}</p>
+        </div>
+      </div>
+      <div className="px-4 pb-4">
+        {getActionButton()}
+      </div>
+    </div>
+  );
+};
+
+export default UserClassCard;

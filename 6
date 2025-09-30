@@ -1,0 +1,38 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import AdminLayout from './layouts/AdminLayout';
+import UserLayout from './layouts/UserLayout';
+import AdminDashboard from './pages/AdminDashboard';
+import HomePage from './pages/HomePage';
+import PlaceholderPage from './pages/PlaceholderPage';
+import BatchesPage from './pages/BatchesPage';
+import TutorsPage from './pages/TutorsPage';
+import BatchDetailPage from './pages/BatchDetailPage';
+import NotificationsPage from './pages/NotificationsPage';
+
+function App() {
+    return (
+        <Router>
+            <Routes>
+                {/* Public user-facing routes */}
+                <Route path="/" element={<UserLayout />}>
+                    <Route index element={<HomePage />} />
+                </Route>
+
+                {/* Admin routes are now public */}
+                <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                    <Route path="dashboard" element={<AdminDashboard />} />
+                    <Route path="batches" element={<BatchesPage />} />
+                    <Route path="batches/:batchId" element={<BatchDetailPage />} />
+                    <Route path="tutors" element={<TutorsPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
+                    <Route path="analytics" element={<PlaceholderPage />} />
+                    <Route path="settings" element={<PlaceholderPage />} />
+                </Route>
+            </Routes>
+        </Router>
+    );
+}
+
+export default App;

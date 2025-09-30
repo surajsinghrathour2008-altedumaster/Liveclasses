@@ -1,0 +1,33 @@
+import React, { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import UserHeader from '@/components/UserHeader';
+import { useUI } from '@/context/UIContext';
+import NotificationPanel from '@/components/NotificationPanel';
+import { ClassNotificationProvider } from '@/context/ClassNotificationContext';
+
+// We define a context type to pass state and setters to child routes
+export type UserLayoutContextType = {
+  activeTab: 'live' | 'upcoming' | 'completed';
+  setActiveTab: React.Dispatch<React.SetStateAction<'live' | 'upcoming' | 'completed'>>;
+};
+
+const UserLayout: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'live' | 'upcoming' | 'completed'>('live');
+  const { isNotificationPanelOpen, toggleNotificationPanel } = useUI();
+
+  return (
+    <ClassNotificationProvider>
+      <div className="min-h-screen bg-gray-900 text-white">
+        {/* The header now receives the state and the function to change it */}
+        <UserHeader activeTab={activeTab} onTabChange={setActiveTab} />
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* The active tab state is passed down to the page (HomePage) */}
+          <Outlet context={{ activeTab, setActiveTab }} />
+        </main>
+        <NotificationPanel isOpen={isNotificationPanelOpen} onClose={toggleNotificationPanel} />
+      </div>
+    </ClassNotificationProvider>
+  );
+};
+
+export default UserLayout;

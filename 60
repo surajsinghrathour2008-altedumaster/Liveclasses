@@ -1,0 +1,73 @@
+import React from 'react';
+import toast from 'react-hot-toast';
+import { useUI } from '@/context/UIContext';
+import { createNotification } from '@/services/api';
+import Modal from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Textarea } from '@/components/ui/Textarea';
+import { Button } from '@/components/ui/Button';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const notificationSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  message: z.string().min(10, 'Message must be at least 10 characters'),
+});
+
+type NotificationFormValues = z.infer<typeof notificationSchema>;
+
+interface CreateNotificationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const CreateNotificationModal: React.FC<CreateNotificationModalProps> = ({ isOpen, onClose }) => {
+  const { refreshData, closeModal } = useUI();
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<NotificationFormValues>({
+    resolver: zodResolver(notificationSchema),
+  });
+
+  const onSubmit = async (data: NotificationFormValues) => {
+    const promise = createNotification(data);
+
+    toast.promise(promise, {
+      loading: 'Creating notification...',
+      success: () => {
+        refreshData();
+        closeModal();
+        reset();
+        return 'Notification created successfully!';
+      },
+      error: (err) => `Error: ${err.message}`,
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={closeModal} title="Create New Notification">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="notification-title">Title</Label>
+          <Input id="notification-title" {...register('title')} placeholder="e.g., Scheduled Maintenance" />
+          {errors.title && <p className="text-red-500 text-xs">{errors.title.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="notification-message">Message</Label>
+          <Textarea id="notification-message" {...register('message')} placeholder="Describe the announcement..." />
+          {errors.message && <p className="text-red-500 text-xs">{errors.message.message}</p>}
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={closeModal} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Creating...' : 'Create Notification'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default CreateNotificationModal;

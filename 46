@@ -1,0 +1,45 @@
+/*
+# [Grant Write Permissions for Admin Operations]
+This migration adds Row Level Security (RLS) policies to allow creating, updating, and deleting records in the `batches`, `classes`, and `notifications` tables.
+
+## Query Description: 
+This is a temporary but necessary measure to allow the admin panel to function without user authentication. It grants write permissions to the public `anon` role. These policies should be revised to be more restrictive once a proper user authentication system with admin roles is implemented.
+
+## Metadata:
+- Schema-Category: "Structural"
+- Impact-Level: "Medium"
+- Requires-Backup: false
+- Reversible: true
+
+## Structure Details:
+- Tables affected: `public.batches`, `public.classes`, `public.notifications`
+- Policies added:
+  - "Allow insert for anonymous users"
+  - "Allow update for anonymous users"
+  - "Allow delete for anonymous users"
+
+## Security Implications:
+- RLS Status: Policies are being added.
+- Policy Changes: Yes.
+- Auth Requirements: This temporarily lowers security by allowing any anonymous user to write data. It is a required step before implementing full authentication.
+
+## Performance Impact:
+- Indexes: None
+- Triggers: None
+- Estimated Impact: Low.
+*/
+
+-- Grant INSERT, UPDATE, DELETE on 'batches' table for anonymous users
+create policy "Allow insert for anonymous users" on public.batches for insert to anon with check (true);
+create policy "Allow update for anonymous users" on public.batches for update to anon using (true) with check (true);
+create policy "Allow delete for anonymous users" on public.batches for delete to anon using (true);
+
+-- Grant INSERT, UPDATE, DELETE on 'classes' table for anonymous users
+create policy "Allow insert for anonymous users" on public.classes for insert to anon with check (true);
+create policy "Allow update for anonymous users" on public.classes for update to anon using (true) with check (true);
+create policy "Allow delete for anonymous users" on public.classes for delete to anon using (true);
+
+-- Grant INSERT, UPDATE, DELETE on 'notifications' table for anonymous users
+create policy "Allow insert for anonymous users" on public.notifications for insert to anon with check (true);
+create policy "Allow update for anonymous users" on public.notifications for update to anon using (true) with check (true);
+create policy "Allow delete for anonymous users" on public.notifications for delete to anon using (true);
