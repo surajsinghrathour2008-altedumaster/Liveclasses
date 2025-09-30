@@ -1,4 +1,21 @@
 import React, { createContext, useState, useContext, ReactNode } from 'react';
+import { LucideIcon } from 'lucide-react';
+import { RecurringClass } from '@/types';
+
+export interface ContextMenuOption {
+  label: string;
+  action?: () => void;
+  icon?: LucideIcon;
+  isSeparator?: boolean;
+  disabled?: boolean;
+  isDestructive?: boolean;
+}
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  options: ContextMenuOption[];
+}
 
 type ModalType = 
   | 'createRecurringClass' 
@@ -8,7 +25,8 @@ type ModalType =
   | 'createTutor'
   | 'editTutor'
   | 'createNotification'
-  | 'confirmDelete' 
+  | 'confirmDelete'
+  | 'duplicateSchedule'
   | null;
 
 interface UIContextType {
@@ -20,6 +38,11 @@ interface UIContextType {
   triggerRefresh: number;
   isNotificationPanelOpen: boolean;
   toggleNotificationPanel: () => void;
+  contextMenu: ContextMenuState | null;
+  openContextMenu: (x: number, y: number, options: ContextMenuOption[]) => void;
+  closeContextMenu: () => void;
+  copiedClass: RecurringClass | null;
+  setCopiedClass: (cls: RecurringClass | null) => void;
 }
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -29,6 +52,8 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [modalData, setModalData] = useState<any>(null);
   const [triggerRefresh, setTriggerRefresh] = useState(0);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [copiedClass, setCopiedClass] = useState<RecurringClass | null>(null);
 
   const openModal = (modalType: ModalType, data: any = null) => {
     setModalData(data);
@@ -44,6 +69,14 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   const toggleNotificationPanel = () => setIsNotificationPanelOpen(prev => !prev);
 
+  const openContextMenu = (x: number, y: number, options: ContextMenuOption[]) => {
+    setContextMenu({ x, y, options });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
   return (
     <UIContext.Provider value={{ 
       modal, 
@@ -53,7 +86,12 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       refreshData, 
       triggerRefresh,
       isNotificationPanelOpen,
-      toggleNotificationPanel
+      toggleNotificationPanel,
+      contextMenu,
+      openContextMenu,
+      closeContextMenu,
+      copiedClass,
+      setCopiedClass,
     }}>
       {children}
     </UIContext.Provider>

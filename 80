@@ -1,0 +1,90 @@
+/*
+          # [Operation Name]
+          Create API Views for Classes and Notifications
+
+          ## Query Description: This script creates two new database views (`all_class_sessions` and `public_notifications`) to provide a stable, public REST API for your class schedule and announcements. This moves complex logic into the database, making it accessible via Supabase's auto-generated API, and removes the need for deploying separate Edge Functions. This is a non-destructive, safe operation that only adds new views.
+          
+          ## Metadata:
+          - Schema-Category: ["Structural"]
+          - Impact-Level: ["Low"]
+          - Requires-Backup: [false]
+          - Reversible: [true]
+          
+          ## Structure Details:
+          - Creates VIEW `public.all_class_sessions`
+          - Creates VIEW `public.public_notifications`
+          
+          ## Security Implications:
+          - RLS Status: [Enabled]
+          - Policy Changes: [No]
+          - Auth Requirements: [Grants SELECT to `anon` and `authenticated` roles on the new views.]
+          
+          ## Performance Impact:
+          - Indexes: [None]
+          - Triggers: [None]
+          - Estimated Impact: [Low. The view performs calculations on data reads, which is efficient for this use case.]
+          */
+
+-- Drop existing views if they exist, for idempotency
+DROP VIEW IF EXISTS public.all_class_sessions;
+DROP VIEW IF EXISTS public.public_notifications;
+
+-- Create a secure view for public notifications
+CREATE VIEW public.public_notifications AS
+SELECT
+  id,
+  title,
+  message,
+  created_at
+FROM
+  public.notifications
+ORDER BY
+  created_at DESC;
+
+-- Create the powerful view for generating and categorizing all class sessions
+CREATE VIEW public.all_class_sessions AS
+WITH dates AS (
+  -- Generate a series of dates from the last 7 days to the next 14 days to capture all relevant classes
+  SELECT generate_series(
+    (current_date - interval '7 day'),
+    (current_date + interval '14 day'),
+    interval '1 day'
+  )::date AS series_date
+)
+SELECT
+  -- Generate a unique ID for each materialized class instance
+  (rc.id || '-' || to_char(d.series_date, 'YYYY-MM-DD'))::text AS id,
+  rc.id AS recurring_class_id,
+  rc.title,
+  b.name AS batch,
+  rc.batch_id AS "batchId",
+  -- Combine the generated date with the stored time to create a full timestamp
+  (d.series_date + rc.start_time)::timestamptz AS "startTime",
+  (d.series_date + rc.end_time)::timestamptz AS "endTime",
+  rc.thumbnail_url AS "thumbnailUrl",
+  jsonb_build_object(
+    'id', t.id,
+    'name', t.name,
+    'video_url', t.video_url,
+    'created_at', t.created_at
+  ) AS tutor,
+  -- Calculate the status of the class instance in real-time
+  CASE
+    WHEN (d.series_date + rc.start_time)::timestamptz <= now() AND (d.series_date + rc.end_time)::timestamptz > now() THEN 'live'::text
+    WHEN (d.series_date + rc.start_time)::timestamptz > now() AND d.series_date = current_date THEN 'upcoming'::text
+    WHEN (d.series_date + rc.end_time)::timestamptz <= now() AND d.series_date = current_date THEN 'completed'::text
+    ELSE NULL -- Will be filtered out
+  END AS status
+FROM
+  dates d
+  -- Join with recurring classes on the correct day of the week
+  CROSS JOIN public.recurring_classes rc
+  JOIN public.batches b ON rc.batch_id = b.id
+  JOIN public.tutors t ON rc.tutor_id = t.id
+WHERE
+  -- JS getDay() is Sun=0..Sat=6, Postgres dow is Sun=0..Sat=6. This is a direct match.
+  extract(dow FROM d.series_date) = rc.day_of_week;
+
+-- Grant permissions for anonymous and logged-in users to read from these views
+GRANT SELECT ON public.all_class_sessions TO anon, authenticated;
+GRANT SELECT ON public.public_notifications TO anon, authenticated;

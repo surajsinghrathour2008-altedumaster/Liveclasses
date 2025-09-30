@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getBatchById, getRecurringClassesForBatch } from '@/services/api';
+import toast from 'react-hot-toast';
+import { getBatchById, getRecurringClassesForBatch, createRecurringClass } from '@/services/api';
 import { RecurringClass, Batch } from '@/types';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useUI } from '@/context/UIContext';
 import { Button } from '@/components/ui/Button';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowLeft, Copy, ClipboardPaste, CopyPlus, Pencil, Trash2 } from 'lucide-react';
 import RecurringClassCard from '@/components/RecurringClassCard';
+import { cn } from '@/lib/utils';
 
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -16,7 +18,9 @@ const BatchDetailPage: React.FC = () => {
   const [recurringClasses, setRecurringClasses] = useState<RecurringClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { openModal, triggerRefresh } = useUI();
+  const { openModal, triggerRefresh, openContextMenu, copiedClass, setCopiedClass, refreshData } = useUI();
+  
+  const [draggedOverDay, setDraggedOverDay] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,6 +50,95 @@ const BatchDetailPage: React.FC = () => {
     classesByDay[day].push(session);
   });
 
+  const handleClassContextMenu = (e: React.MouseEvent, session: RecurringClass) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openContextMenu(e.clientX, e.clientY, [
+      { label: 'Copy Class', icon: Copy, action: () => setCopiedClass(session) },
+      { isSeparator: true },
+      { label: 'Edit', icon: Pencil, action: () => openModal('editRecurringClass', session) },
+      { label: 'Delete', icon: Trash2, isDestructive: true, action: () => openModal('confirmDelete', { id: session.id, type: 'recurring-class', name: session.title }) },
+    ]);
+  };
+
+  const handleDayContextMenu = (e: React.MouseEvent, dayIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openContextMenu(e.clientX, e.clientY, [
+      { 
+        label: 'Paste Class', 
+        icon: ClipboardPaste, 
+        disabled: !copiedClass,
+        action: () => handlePasteClass(dayIndex)
+      },
+      { 
+        label: 'Duplicate Schedule to...', 
+        icon: CopyPlus,
+        disabled: !classesByDay[dayIndex] || classesByDay[dayIndex].length === 0,
+        action: () => openModal('duplicateSchedule', { sourceDay: dayIndex, classesToDuplicate: classesByDay[dayIndex] })
+      },
+    ]);
+  };
+
+  const handlePasteClass = (targetDay: number) => {
+    if (!copiedClass) return;
+
+    const newClassData = {
+      ...copiedClass,
+      day_of_week: targetDay,
+      id: undefined,
+      created_at: undefined,
+    };
+    
+    const promise = createRecurringClass(newClassData);
+    toast.promise(promise, {
+        loading: 'Pasting class...',
+        success: () => {
+            refreshData();
+            return 'Class pasted successfully!';
+        },
+        error: (err) => `Error: ${err.message}`,
+    });
+  };
+
+  const handleDragStart = (e: React.DragEvent, session: RecurringClass) => {
+    e.dataTransfer.setData('application/json', JSON.stringify(session));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetDay: number) => {
+    e.preventDefault();
+    setDraggedOverDay(null);
+    const sessionJSON = e.dataTransfer.getData('application/json');
+    if (!sessionJSON) return;
+
+    const sessionToCopy: RecurringClass = JSON.parse(sessionJSON);
+    
+    if (sessionToCopy.day_of_week === targetDay) return;
+
+    const newClassData = {
+        ...sessionToCopy,
+        day_of_week: targetDay,
+        id: undefined,
+        created_at: undefined,
+    };
+
+    const promise = createRecurringClass(newClassData);
+    toast.promise(promise, {
+        loading: 'Copying class...',
+        success: () => {
+            refreshData();
+            return 'Class copied successfully!';
+        },
+        error: (err) => `Error: ${err.message}`,
+    });
+  };
+
   return (
     <div>
       <Link to="/admin/batches" className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 transition-colors">
@@ -62,14 +155,25 @@ const BatchDetailPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
         {[1, 2, 3, 4, 5, 6, 0].map(dayIndex => (
-            <div key={dayIndex} className="bg-gray-800/50 rounded-xl p-3 flex flex-col gap-3">
+            <div 
+              key={dayIndex} 
+              className={cn(
+                "bg-gray-800/50 rounded-xl p-3 flex flex-col gap-3 transition-colors",
+                draggedOverDay === dayIndex && "bg-accent-start/20 border border-accent-start"
+              )}
+              onContextMenu={(e) => handleDayContextMenu(e, dayIndex)}
+              onDragOver={handleDragOver}
+              onDragEnter={() => setDraggedOverDay(dayIndex)}
+              onDragLeave={() => setDraggedOverDay(null)}
+              onDrop={(e) => handleDrop(e, dayIndex)}
+            >
               <div className="text-center">
                 <p className="text-sm text-gray-400">{WEEK_DAYS[dayIndex]}</p>
               </div>
               <Button variant="secondary" size="sm" onClick={() => openModal('createRecurringClass', { batchId, dayOfWeek: dayIndex })}>
                 <Plus size={14} className="mr-1" /> Class
               </Button>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 min-h-[100px]">
                 {isLoading ? (
                   <Skeleton className="h-32 w-full" />
                 ) : (classesByDay[dayIndex] || []).length > 0 ? (
@@ -77,8 +181,8 @@ const BatchDetailPage: React.FC = () => {
                     <RecurringClassCard 
                       key={session.id} 
                       session={session}
-                      onEdit={() => openModal('editRecurringClass', session)}
-                      onDelete={() => openModal('confirmDelete', { id: session.id, type: 'recurring-class', name: session.title })}
+                      onContextMenu={(e) => handleClassContextMenu(e, session)}
+                      onDragStart={(e) => handleDragStart(e, session)}
                     />
                   ))
                 ) : (
@@ -88,8 +192,8 @@ const BatchDetailPage: React.FC = () => {
                 )}
               </div>
             </div>
-          )
-        )}
+          ))
+        }
       </div>
     </div>
   );

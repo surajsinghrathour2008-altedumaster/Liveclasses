@@ -1,0 +1,101 @@
+import React, { useState } from 'react';
+import toast from 'react-hot-toast';
+import { useUI } from '@/context/UIContext';
+import { createRecurringClass } from '@/services/api';
+import { RecurringClass } from '@/types';
+import Modal from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
+import { Label } from '@/components/ui/Label';
+import { cn } from '@/lib/utils';
+
+const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+interface DuplicateScheduleModalProps {
+  isOpen: boolean;
+}
+
+const DuplicateScheduleModal: React.FC<DuplicateScheduleModalProps> = ({ isOpen }) => {
+  const { modalData, refreshData, closeModal } = useUI();
+  const { sourceDay, classesToDuplicate } = modalData || {};
+  
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleDayToggle = (dayIndex: number) => {
+    setSelectedDays(prev => 
+      prev.includes(dayIndex) ? prev.filter(d => d !== dayIndex) : [...prev, dayIndex]
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (selectedDays.length === 0) {
+      return toast.error("Please select at least one day to duplicate to.");
+    }
+    if (!classesToDuplicate || classesToDuplicate.length === 0) {
+      closeModal();
+      return toast.error("No classes to duplicate.");
+    }
+
+    setIsSubmitting(true);
+    
+    const newClassesPayload = selectedDays.flatMap(day => 
+      (classesToDuplicate as RecurringClass[]).map(cls => ({
+        ...cls,
+        day_of_week: day,
+        id: undefined, // Let Supabase generate new ID
+        created_at: undefined,
+      }))
+    );
+
+    const promise = createRecurringClass(newClassesPayload);
+
+    toast.promise(promise, {
+      loading: 'Duplicating schedule...',
+      success: () => {
+        refreshData();
+        closeModal();
+        return 'Schedule duplicated successfully!';
+      },
+      error: (err) => `Error: ${err.message}`,
+    }).finally(() => {
+      setIsSubmitting(false);
+      setSelectedDays([]);
+    });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={closeModal} title={`Duplicate ${WEEK_DAYS[sourceDay] || ''}'s Schedule`}>
+      <div className="space-y-4">
+        <Label>Select destination day(s):</Label>
+        <div className="grid grid-cols-4 gap-2">
+          {[1, 2, 3, 4, 5, 6, 0].map(dayIndex => (
+            <button
+              key={dayIndex}
+              onClick={() => handleDayToggle(dayIndex)}
+              disabled={dayIndex === sourceDay}
+              className={cn(
+                "p-3 rounded-lg border text-center transition-colors",
+                selectedDays.includes(dayIndex) 
+                  ? 'bg-accent-start border-accent-end text-white' 
+                  : 'bg-gray-700 border-gray-600 hover:bg-gray-600',
+                dayIndex === sourceDay && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              {WEEK_DAYS[dayIndex]}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="secondary" onClick={closeModal} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSubmit} disabled={isSubmitting || selectedDays.length === 0}>
+            {isSubmitting ? 'Duplicating...' : 'Duplicate'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+export default DuplicateScheduleModal;
