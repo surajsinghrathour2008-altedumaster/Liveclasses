@@ -1,0 +1,21 @@
+-- This script re-establishes the foreign key link between recurring_classes and tutors.
+-- This was accidentally removed by a previous migration that used `DROP TABLE ... CASCADE`.
+-- This is a safe, non-destructive operation.
+
+DO $$
+BEGIN
+  -- Check if the constraint already exists to prevent errors on re-running.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'recurring_classes_tutor_id_fkey' AND conrelid = 'public.recurring_classes'::regclass
+  ) THEN
+    -- If it doesn't exist, add it.
+    ALTER TABLE public.recurring_classes
+    ADD CONSTRAINT recurring_classes_tutor_id_fkey
+    FOREIGN KEY (tutor_id)
+    REFERENCES public.tutors(id)
+    ON DELETE SET NULL; -- If a tutor is deleted, set the tutor_id in the class to NULL.
+  END IF;
+END;
+$$;

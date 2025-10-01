@@ -83,11 +83,15 @@ const BatchDetailPage: React.FC = () => {
   const handlePasteClass = (targetDay: number) => {
     if (!copiedClass) return;
 
+    // Manually construct the payload to ensure no unwanted properties (like id or nested objects) are included.
     const newClassData = {
-      ...copiedClass,
+      title: copiedClass.title,
       day_of_week: targetDay,
-      id: undefined,
-      created_at: undefined,
+      start_time: copiedClass.start_time,
+      end_time: copiedClass.end_time,
+      batch_id: copiedClass.batch_id,
+      tutor_id: copiedClass.tutor_id,
+      thumbnail_url: copiedClass.thumbnail_url,
     };
     
     const promise = createRecurringClass(newClassData);
@@ -121,11 +125,15 @@ const BatchDetailPage: React.FC = () => {
     
     if (sessionToCopy.day_of_week === targetDay) return;
 
+    // Manually construct the payload to ensure no unwanted properties are included.
     const newClassData = {
-        ...sessionToCopy,
-        day_of_week: targetDay,
-        id: undefined,
-        created_at: undefined,
+      title: sessionToCopy.title,
+      day_of_week: targetDay,
+      start_time: sessionToCopy.start_time,
+      end_time: sessionToCopy.end_time,
+      batch_id: sessionToCopy.batch_id,
+      tutor_id: sessionToCopy.tutor_id,
+      thumbnail_url: sessionToCopy.thumbnail_url,
     };
 
     const promise = createRecurringClass(newClassData);

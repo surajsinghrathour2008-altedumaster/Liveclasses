@@ -1,0 +1,28 @@
+/*
+  # [Operation Name]
+  Cleanup Insecure API Views
+
+  ## Query Description: [This operation removes the database views `all_class_sessions` and `public_notifications`. These were created in a previous attempt to build a public API and are being replaced by more secure Supabase Edge Functions. This is a safe cleanup step.]
+  
+  ## Metadata:
+  - Schema-Category: ["Structural"]
+  - Impact-Level: ["Low"]
+  - Requires-Backup: [false]
+  - Reversible: [false]
+  
+  ## Structure Details:
+  - Drops VIEW: `public.all_class_sessions`
+  - Drops VIEW: `public.public_notifications`
+  
+  ## Security Implications:
+  - RLS Status: [N/A]
+  - Policy Changes: [No]
+  - Auth Requirements: [N/A]
+  
+  ## Performance Impact:
+  - Indexes: [None]
+  - Triggers: [None]
+  - Estimated Impact: [None]
+*/
+DROP VIEW IF EXISTS public.all_class_sessions;
+DROP VIEW IF EXISTS public.public_notifications;

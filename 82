@@ -39,12 +39,18 @@ const DuplicateScheduleModal: React.FC<DuplicateScheduleModalProps> = ({ isOpen 
     setIsSubmitting(true);
     
     const newClassesPayload = selectedDays.flatMap(day => 
-      (classesToDuplicate as RecurringClass[]).map(cls => ({
-        ...cls,
-        day_of_week: day,
-        id: undefined, // Let Supabase generate new ID
-        created_at: undefined,
-      }))
+      (classesToDuplicate as RecurringClass[]).map(cls => {
+        // Manually construct the payload, omitting nested objects and meta fields like id and created_at.
+        return {
+          title: cls.title,
+          day_of_week: day,
+          start_time: cls.start_time,
+          end_time: cls.end_time,
+          batch_id: cls.batch_id,
+          tutor_id: cls.tutor_id,
+          thumbnail_url: cls.thumbnail_url,
+        }
+      })
     );
 
     const promise = createRecurringClass(newClassesPayload);
