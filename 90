@@ -1,0 +1,48 @@
+-- Revoke all previous public access policies to ensure a clean slate.
+DROP POLICY IF EXISTS "Allow public read access on batches" ON public.batches;
+DROP POLICY IF EXISTS "Allow public read access on recurring_classes" ON public.recurring_classes;
+DROP POLICY IF EXISTS "Allow public read access on tutors" ON public.tutors;
+DROP POLICY IF EXISTS "Allow public read access on notifications" ON public.notifications;
+
+DROP POLICY IF EXISTS "Allow public write access on batches" ON public.batches;
+DROP POLICY IF EXISTS "Allow public write access on recurring_classes" ON public.recurring_classes;
+DROP POLICY IF EXISTS "Allow public write access on tutors" ON public.tutors;
+DROP POLICY IF EXISTS "Allow public write access on notifications" ON public.notifications;
+
+-- Create new policies that restrict all access to authenticated users only.
+
+-- Batches Table
+CREATE POLICY "Allow authenticated read access" ON public.batches
+FOR SELECT
+USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow authenticated write access" ON public.batches
+FOR ALL
+USING (auth.role() = 'authenticated');
+
+-- Recurring Classes Table
+CREATE POLICY "Allow authenticated read access" ON public.recurring_classes
+FOR SELECT
+USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow authenticated write access" ON public.recurring_classes
+FOR ALL
+USING (auth.role() = 'authenticated');
+
+-- Tutors Table
+CREATE POLICY "Allow authenticated read access" ON public.tutors
+FOR SELECT
+USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow authenticated write access" ON public.tutors
+FOR ALL
+USING (auth.role() = 'authenticated');
+
+-- Notifications Table
+CREATE POLICY "Allow authenticated read access" ON public.notifications
+FOR SELECT
+USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow authenticated write access" ON public.notifications
+FOR ALL
+USING (auth.role() = 'authenticated');

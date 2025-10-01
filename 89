@@ -1,0 +1,52 @@
+/*
+# [Operation] Secure All Tables with Authenticated RLS
+This migration updates the Row Level Security (RLS) policies for all tables to ensure that data can only be read by authenticated (logged-in) users. It revokes previous anonymous access and enforces a secure-by-default posture.
+
+## Query Description:
+This script performs the following actions:
+1. Drops any existing, potentially insecure "SELECT" policies on the `batches`, `recurring_classes`, `tutors`, and `notifications` tables.
+2. Creates new "SELECT" policies on these tables that only allow access if a user is authenticated (`auth.uid() IS NOT NULL`).
+3. This change ensures that your website's data is no longer publicly readable, requiring a user to log in to view any content.
+
+## Metadata:
+- Schema-Category: "Security"
+- Impact-Level: "High"
+- Requires-Backup: false
+- Reversible: true (by creating policies for anonymous users)
+
+## Security Implications:
+- RLS Status: Enabled
+- Policy Changes: Yes. This is a breaking change for any unauthenticated access. Your public API will stop working until we create secure Edge Functions. This is the intended behavior to secure the application.
+- Auth Requirements: All read/write operations will now require an authenticated user.
+*/
+
+-- Secure 'batches' table
+DROP POLICY IF EXISTS "Allow public read access to batches" ON public.batches;
+CREATE POLICY "Allow authenticated users to read batches"
+ON public.batches FOR SELECT
+TO authenticated
+USING (true);
+
+-- Secure 'recurring_classes' table
+DROP POLICY IF EXISTS "Allow public read access to recurring classes" ON public.recurring_classes;
+CREATE POLICY "Allow authenticated users to read recurring classes"
+ON public.recurring_classes FOR SELECT
+TO authenticated
+USING (true);
+
+-- Secure 'tutors' table
+DROP POLICY IF EXISTS "Allow public read access to tutors" ON public.tutors;
+CREATE POLICY "Allow authenticated users to read tutors"
+ON public.tutors FOR SELECT
+TO authenticated
+USING (true);
+
+-- Secure 'notifications' table
+DROP POLICY IF EXISTS "Allow public read access to notifications" ON public.notifications;
+CREATE POLICY "Allow authenticated users to read notifications"
+ON public.notifications FOR SELECT
+TO authenticated
+USING (true);
+
+-- NOTE: Write policies (INSERT, UPDATE, DELETE) should already be restricted to authenticated users.
+-- This ensures that both reading and writing data are secure operations.

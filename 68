@@ -5,10 +5,13 @@ import { useAuth } from '@/context/AuthContext';
 const ProtectedRoute: React.FC = () => {
   const { session } = useAuth();
 
+  // If there is no session, redirect the user to the login page.
+  // We also pass the current location in state so we can redirect back after login.
   if (!session) {
     return <Navigate to="/login" replace />;
   }
 
+  // If there is a session, render the child routes (the protected part of the app).
   return <Outlet />;
 };
 

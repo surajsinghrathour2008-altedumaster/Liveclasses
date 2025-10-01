@@ -17,21 +17,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const getSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+    };
 
-    // Initial session fetch
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    getSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
+      if (_event === 'INITIAL_SESSION') {
+        setLoading(false);
+      }
     });
 
     return () => {
-      subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -39,13 +43,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await supabase.auth.signOut();
   };
 
+  // While the initial session is being fetched, show a full-screen loader.
   if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-gray-900">
-        <div className="w-full max-w-md space-y-4 p-8">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
+        <div className="text-center">
+            <p className="text-2xl font-bold text-white animate-pulse">Codify</p>
+            <p className="text-gray-400">Securing your session...</p>
         </div>
       </div>
     );

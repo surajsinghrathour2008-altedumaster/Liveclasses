@@ -10,29 +10,36 @@ import TutorsPage from './pages/TutorsPage';
 import BatchDetailPage from './pages/BatchDetailPage';
 import NotificationsPage from './pages/NotificationsPage';
 import { ClassNotificationProvider } from './context/ClassNotificationContext';
+import LoginPage from './pages/LoginPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
     return (
         <Router>
-            {/* The ClassNotificationProvider is now at the top level to work across the entire app */}
             <ClassNotificationProvider>
                 <Routes>
-                    {/* Public user-facing routes */}
-                    <Route path="/" element={<UserLayout />}>
-                        <Route index element={<HomePage />} />
-                    </Route>
+                    <Route path="/login" element={<LoginPage />} />
+                    
+                    {/* All other routes are now wrapped in the ProtectedRoute */}
+                    <Route element={<ProtectedRoute />}>
+                        <Route path="/" element={<UserLayout />}>
+                            <Route index element={<HomePage />} />
+                        </Route>
 
-                    {/* Admin routes are now public */}
-                    <Route path="/admin" element={<AdminLayout />}>
-                        <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                        <Route path="dashboard" element={<AdminDashboard />} />
-                        <Route path="batches" element={<BatchesPage />} />
-                        <Route path="batches/:batchId" element={<BatchDetailPage />} />
-                        <Route path="tutors" element={<TutorsPage />} />
-                        <Route path="notifications" element={<NotificationsPage />} />
-                        <Route path="analytics" element={<PlaceholderPage />} />
-                        <Route path="settings" element={<PlaceholderPage />} />
+                        <Route path="/admin" element={<AdminLayout />}>
+                            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                            <Route path="dashboard" element={<AdminDashboard />} />
+                            <Route path="batches" element={<BatchesPage />} />
+                            <Route path="batches/:batchId" element={<BatchDetailPage />} />
+                            <Route path="tutors" element={<TutorsPage />} />
+                            <Route path="notifications" element={<NotificationsPage />} />
+                            <Route path="analytics" element={<PlaceholderPage />} />
+                            <Route path="settings" element={<PlaceholderPage />} />
+                        </Route>
                     </Route>
+                    
+                    {/* Fallback route if no other route matches */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </ClassNotificationProvider>
         </Router>
